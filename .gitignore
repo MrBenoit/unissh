@@ -1,0 +1,23 @@
+# Собранный бинарник
+/unissh
+/unissh_race
+unissh-*.exp
+
+# ОС и редакторы
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# GoReleaser
+/dist/
+
+# go workspace (локальный)
+go.work
+go.work.sum
+
+# локальный контекст для ассистентов
+CLAUDE.md
+
+# git
+/.github

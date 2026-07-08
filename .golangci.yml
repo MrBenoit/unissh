@@ -1,0 +1,17 @@
+version: "2"
+
+linters:
+  enable:
+    - govet
+    - staticcheck
+    - errcheck
+    - unused
+    - misspell
+    - ineffassign
+  settings:
+    misspell:
+      locale: US
+
+formatters:
+  enable:
+    - gofmt
