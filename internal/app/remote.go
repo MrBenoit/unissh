@@ -27,10 +27,6 @@ type Remote struct {
 	user   string
 }
 
-func shellQuote(s string) string {
-	return "'" + strings.ReplaceAll(s, "'", `'"'"'`) + "'"
-}
-
 var knownHostsMu sync.Mutex
 
 // hostKeyChangedError — отпечаток хоста не совпал с сохранённым.
@@ -50,7 +46,7 @@ func tofuHostKeyCallback() (ssh.HostKeyCallback, error) {
 	if err != nil {
 		return nil, err
 	}
-	f.Close()
+	_ = f.Close()
 	base, err := knownhosts.New(path)
 	if err != nil {
 		return nil, err
@@ -68,7 +64,7 @@ func tofuHostKeyCallback() (ssh.HostKeyCallback, error) {
 			if ferr != nil {
 				return ferr
 			}
-			defer f.Close()
+			defer func() { _ = f.Close() }()
 			_, werr := fmt.Fprintln(f, knownhosts.Line([]string{knownhosts.Normalize(hostname)}, key))
 			return werr
 		}
@@ -114,18 +110,6 @@ func keyAuthMethod(keyPath string) (ssh.AuthMethod, error) {
 	return nil, nil // зашифрованный ключ без известной фразы — пусть решает агент/пароль
 }
 
-// parseJump разбирает спецификацию бастиона «[user@]host[:port]».
-func parseJump(spec, defaultUser string) (user, host, port string) {
-	user, host, port = defaultUser, spec, "22"
-	if at := strings.LastIndex(spec, "@"); at >= 0 {
-		user, host = spec[:at], spec[at+1:]
-	}
-	if c := strings.LastIndex(host, ":"); c >= 0 {
-		port, host = host[c+1:], host[:c]
-	}
-	return
-}
-
 // dialViaJump подключается к target через бастион proxyJump (для программного
 // клиента). Бастион аутентифицируется тем же ключом/агентом, что и цель.
 func dialViaJump(proxyJump, defaultUser, targetHost string, targetPort int,
@@ -151,12 +135,12 @@ func dialViaJump(proxyJump, defaultUser, targetHost string, targetPort int,
 	targetAddr := net.JoinHostPort(targetHost, strconv.Itoa(targetPort))
 	conn, err := jClient.Dial("tcp", targetAddr)
 	if err != nil {
-		jClient.Close()
+		_ = jClient.Close()
 		return nil, nil, err
 	}
 	ncc, chans, reqs, err := ssh.NewClientConn(conn, targetAddr, targetCfg)
 	if err != nil {
-		jClient.Close()
+		_ = jClient.Close()
 		return nil, nil, err
 	}
 	return ssh.NewClient(ncc, chans, reqs), jClient, nil
@@ -164,7 +148,9 @@ func dialViaJump(proxyJump, defaultUser, targetHost string, targetPort int,
 
 // dialSSH подключается по ключу, ssh-agent'у и/или паролю (в этом порядке);
 // при proxyJump != "" — через бастион.
-func dialSSH(host string, port int, user, password, keyPath, proxyJump string, timeout time.Duration) (*Remote, error) {
+// Объявлено как var — тесты подменяют транспорт (см. sshserver_test.go), что
+// открывает bootstrap.go и action* для прогона без живого сервера.
+var dialSSH = func(host string, port int, user, password, keyPath, proxyJump string, timeout time.Duration) (*Remote, error) {
 	var auths []ssh.AuthMethod
 	if keyPath != "" {
 		m, err := keyAuthMethod(keyPath)
@@ -224,7 +210,8 @@ func dialSSH(host string, port int, user, password, keyPath, proxyJump string, t
 }
 
 // openRemote подключается к сохранённому серверу (ключ или пароль из Keychain).
-func openRemote(s *Server, askPassword bool) (*Remote, error) {
+// Тоже var — тот же шов для тестов.
+var openRemote = func(s *Server, askPassword bool) (*Remote, error) {
 	key := s.Key
 	password := ""
 	if s.Auth == "password" || key == "" {
@@ -233,7 +220,7 @@ func openRemote(s *Server, askPassword bool) (*Remote, error) {
 		if password == "" && askPassword {
 			pw, ok := askPasswordInput(fmt.Sprintf(T.AskPasswordFor, s.User, s.Host))
 			if !ok {
-				return nil, errors.New(T.Cancelled)
+				return nil, errors.New(T.Canceled)
 			}
 			password = pw
 		}
@@ -285,7 +272,7 @@ func (r *Remote) Run(cmd, stdin string, onLine func(string), timeout time.Durati
 	if err != nil {
 		return -1, "", fmt.Errorf(T.ErrConnLost, err)
 	}
-	defer sess.Close()
+	defer func() { _ = sess.Close() }()
 	if stdin != "" {
 		sess.Stdin = strings.NewReader(stdin)
 	}
@@ -316,7 +303,7 @@ func (r *Remote) Run(cmd, stdin string, onLine func(string), timeout time.Durati
 		}
 		return -1, out, err
 	case <-timer:
-		sess.Close()
+		_ = sess.Close()
 		return -1, lw.String(), fmt.Errorf(T.ErrCmdTimeout, timeout)
 	}
 }
@@ -328,7 +315,8 @@ func (r *Remote) Sh(cmd, stdin string, onLine func(string), timeout time.Duratio
 		return out, err
 	}
 	if code != 0 {
-		lines := strings.Split(strings.TrimSpace(out), "\n")
+		// хвост вывода сервера попадёт в текст ошибки и будет напечатан — санитайзим
+		lines := strings.Split(strings.TrimSpace(sanitizeRemote(out)), "\n")
 		if len(lines) > 6 {
 			lines = lines[len(lines)-6:]
 		}
@@ -347,9 +335,9 @@ func (r *Remote) WriteFile(path, content, mode string) error {
 // Close закрывает соединение (и бастион, если он был).
 func (r *Remote) Close() {
 	if r.client != nil {
-		r.client.Close()
+		_ = r.client.Close()
 	}
 	if r.jump != nil {
-		r.jump.Close()
+		_ = r.jump.Close()
 	}
 }

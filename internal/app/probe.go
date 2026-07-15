@@ -5,7 +5,6 @@ package app
 import (
 	"fmt"
 	"net"
-	"strconv"
 	"sync"
 	"time"
 )
@@ -15,23 +14,13 @@ type probeResult struct {
 	Ping   time.Duration
 }
 
-// formatPing форматирует пинг: дробные миллисекунды для быстрых (<10 мс),
-// целые — для остальных. Иначе суб-миллисекундные пинги обрезались бы в «0».
-func formatPing(d time.Duration) string {
-	ms := float64(d.Microseconds()) / 1000.0
-	if ms < 10 {
-		return strconv.FormatFloat(ms, 'f', 1, 64)
-	}
-	return strconv.FormatFloat(ms, 'f', 0, 64)
-}
-
 func probe(host string, port int, timeout time.Duration) probeResult {
 	t0 := time.Now()
 	conn, err := net.DialTimeout("tcp", net.JoinHostPort(host, fmt.Sprint(port)), timeout)
 	if err != nil {
 		return probeResult{Online: false}
 	}
-	conn.Close()
+	_ = conn.Close()
 	return probeResult{Online: true, Ping: time.Since(t0)}
 }
 

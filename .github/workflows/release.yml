@@ -14,10 +14,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0 # goreleaser нужен полный лог для changelog
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+          cache: true
+
+      # Гейт: без зелёных тестов (включая -race) и покрытия ядра >= 90%
+      # релиз не публикуется. В .goreleaser.yaml есть свои before-hooks —
+      # они страхуют локальный `make release`.
+      - name: Test, race, vet, coverage gate, build
+        run: make ci
+
       - uses: goreleaser/goreleaser-action@v6
         with:
           version: "~> v2"

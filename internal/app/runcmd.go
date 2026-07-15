@@ -8,23 +8,20 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/charmbracelet/huh"
-	"github.com/charmbracelet/huh/spinner"
 )
 
 // pickCommand выбирает команду: из сохранённых сниппетов или вводом вручную.
 // После ручного ввода предлагает сохранить команду как сниппет.
-func pickCommand() (string, bool) {
-	snips := gStore.Settings.Snippets
+func pickCommand(st *Store) (string, bool) {
+	snips := st.Settings.Snippets
 	if len(snips) == 0 {
 		return askInput(T.AskCommand, "", nil)
 	}
-	opts := make([]huh.Option[string], 0, len(snips)+1)
+	opts := make([]selOption[string], 0, len(snips)+1)
 	for i, sn := range snips {
-		opts = append(opts, huh.NewOption(sn.Name+"  —  "+sn.Cmd, strconv.Itoa(i)))
+		opts = append(opts, opt(sn.Name+"  —  "+sn.Cmd, strconv.Itoa(i)))
 	}
-	opts = append(opts, huh.NewOption(T.SnippetManual, "manual"))
+	opts = append(opts, opt(T.SnippetManual, "manual"))
 	choice, ok := askSelect(T.AskCommand, opts)
 	if !ok {
 		return "", false
@@ -32,7 +29,7 @@ func pickCommand() (string, bool) {
 	if choice == "manual" {
 		cmd, ok := askInput(T.AskCommand, "", nil)
 		if ok && cmd != "" {
-			offerSaveSnippet(cmd)
+			offerSaveSnippet(st, cmd)
 		}
 		return cmd, ok
 	}
@@ -44,15 +41,14 @@ func pickCommand() (string, bool) {
 func manageSnippets(st *Store) {
 	for {
 		if len(st.Settings.Snippets) == 0 {
-			fmt.Println(styYellow.Render(T.NoSnippetsYet))
-			time.Sleep(time.Second)
+			showPage(T.SnippetsTitle, []string{styYellow.Render(T.NoSnippetsYet)})
 			return
 		}
-		opts := make([]huh.Option[string], 0, len(st.Settings.Snippets)+1)
+		opts := make([]selOption[string], 0, len(st.Settings.Snippets)+1)
 		for i, sn := range st.Settings.Snippets {
-			opts = append(opts, huh.NewOption("🗑  "+sn.Name+"  —  "+sn.Cmd, strconv.Itoa(i)))
+			opts = append(opts, opt("🗑  "+sn.Name+"  —  "+sn.Cmd, strconv.Itoa(i)))
 		}
-		opts = append(opts, huh.NewOption(T.Back, "back"))
+		opts = append(opts, opt(T.Back, "back"))
 		pick, ok := askSelect(T.SnippetsTitle, opts)
 		if !ok || pick == "back" {
 			return
@@ -64,14 +60,13 @@ func manageSnippets(st *Store) {
 		if yes, ok := askConfirm(fmt.Sprintf(T.AskDeleteSnippet, st.Settings.Snippets[i].Name), false); ok && yes {
 			st.Settings.Snippets = append(st.Settings.Snippets[:i], st.Settings.Snippets[i+1:]...)
 			st.MustSave()
-			fmt.Println(styGreen.Render(T.SnippetDeleted))
-			time.Sleep(700 * time.Millisecond)
+			showToast(styGreen.Render(T.SnippetDeleted))
 		}
 	}
 }
 
 // offerSaveSnippet предлагает сохранить только что введённую команду как сниппет.
-func offerSaveSnippet(cmd string) {
+func offerSaveSnippet(st *Store, cmd string) {
 	if yes, ok := askConfirm(T.SnippetSaveQ, false); !ok || !yes {
 		return
 	}
@@ -79,26 +74,8 @@ func offerSaveSnippet(cmd string) {
 	if !ok || name == "" {
 		return
 	}
-	gStore.Settings.Snippets = append(gStore.Settings.Snippets, Snippet{Name: name, Cmd: cmd})
-	gStore.MustSave()
-}
-
-// withSpinner крутит спиннер, пока выполняется fn.
-// Важно: huh/spinner запускает Action в отдельной горутине, а Ctrl+C (SIGINT)
-// прерывает Run немедленно, НЕ дожидаясь Action. Поэтому мы всегда дожидаемся
-// завершения fn через канал done — иначе была бы гонка данных с результатами,
-// которые fn пишет уже после возврата. Возвращаем ошибку прерывания, чтобы
-// вызыватель мог не печатать неполный результат.
-func withSpinner(title string, fn func() error) error {
-	var err error
-	done := make(chan struct{})
-	serr := spinner.New().Title(" " + title).
-		Action(func() { err = fn(); close(done) }).Run()
-	<-done // дожидаемся fn в любом случае (в т.ч. после SIGINT)
-	if serr != nil {
-		return serr
-	}
-	return err
+	st.Settings.Snippets = append(st.Settings.Snippets, Snippet{Name: name, Cmd: cmd})
+	st.MustSave()
 }
 
 type runResult struct {
@@ -107,20 +84,27 @@ type runResult struct {
 	out  string
 }
 
+// runOn выполняет команду на сервере и фиксирует факт запуска в журнале —
+// единственная точка, через которую проходят и одиночный, и групповой запуск.
 func runOn(s *Server, command string) runResult {
 	r, err := openRemote(s, false)
 	if err != nil {
+		journalRecordRun(s, command, -1)
 		return runResult{name: s.Name, code: -1, out: err.Error()}
 	}
 	defer r.Close()
 	code, out, err := r.Run(command, "", nil, 120*time.Second)
 	if err != nil {
+		journalRecordRun(s, command, -1)
 		return runResult{name: s.Name, code: -1, out: strings.TrimSpace(out + "\n" + err.Error())}
 	}
+	journalRecordRun(s, command, code)
 	return runResult{name: s.Name, code: code, out: out}
 }
 
-func printRunResult(res runResult) {
+// runResultLines рисует результат одного сервера панелью и отдаёт её строками —
+// просмотрщик страницы прокручивает их сам, поэтому обрезать вывод больше не нужно.
+func runResultLines(res runResult) []string {
 	panel := panelGreen
 	label := styGreen.Render(T.StatusOK)
 	if res.code != 0 {
@@ -131,34 +115,24 @@ func printRunResult(res runResult) {
 	if body == "" {
 		body = styDim.Render(T.NoOutput)
 	}
-	if len(body) > 4000 {
-		body = "…" + body[len(body)-4000:]
-	}
-	fmt.Println(panel.Render(styBold.Render(res.name) + " · " + label + "\n" + body))
+	return strings.Split(panel.Render(styBold.Render(res.name)+" · "+label+"\n"+body), "\n")
 }
 
-// actionRunSingle выполняет команду (из сниппета или введённую) на одном сервере.
-func actionRunSingle(s *Server) {
-	command, ok := pickCommand()
+// actionRunSingle выполняет команду (из сниппета или введённую) на одном сервере
+// и показывает вывод полноэкранной страницей.
+func actionRunSingle(st *Store, s *Server) {
+	command, ok := pickCommand(st)
 	if !ok || command == "" {
 		return
 	}
-	var res runResult
-	if err := withSpinner(fmt.Sprintf(T.RunningOn, s.Name), func() error {
-		res = runOn(s, command)
-		return nil
-	}); err != nil {
-		return // прервано (Ctrl+C)
-	}
-	printRunResult(res)
-	pressEnter()
+	status := fmt.Sprintf(T.RunningOn, s.Name)
+	runPage(s.Name, status, nil, func() []string { return runResultLines(runOn(s, command)) }, nil)
 }
 
 // actionRunMulti выполняет команду параллельно на нескольких выбранных серверах.
 func actionRunMulti(st *Store) {
 	if len(st.Servers) == 0 {
-		fmt.Println(styYellow.Render(T.NoServersYet))
-		time.Sleep(time.Second)
+		showPage(T.ToolMulti, []string{styYellow.Render(T.NoServersYet)})
 		return
 	}
 	var opts []multiOption
@@ -169,7 +143,7 @@ func actionRunMulti(st *Store) {
 	if !ok || len(picked) == 0 {
 		return
 	}
-	command, ok := pickCommand()
+	command, ok := pickCommand(st)
 	if !ok || command == "" {
 		return
 	}
@@ -183,9 +157,20 @@ func actionRunMulti(st *Store) {
 			targets = append(targets, s)
 		}
 	}
+	runOnTargets(targets, command)
+}
 
-	results := make([]runResult, len(targets))
-	if err := withSpinner(fmt.Sprintf(T.RunningOnMany, len(targets)), func() error {
+// runOnTargets параллельно выполняет команду на списке серверов и показывает
+// результаты одной прокручиваемой страницей, в порядке списка. Вынесено
+// отдельно, потому что цели приходят из двух мест: мастера «Выполнить на
+// нескольких» и мультивыбора в списке.
+func runOnTargets(targets []*Server, command string) {
+	if len(targets) == 0 || command == "" {
+		return
+	}
+	status := fmt.Sprintf(T.RunningOnMany, len(targets))
+	runPage(T.ToolMulti, status, nil, func() []string {
+		results := make([]runResult, len(targets))
 		var wg sync.WaitGroup
 		sem := make(chan struct{}, 8)
 		for i, s := range targets {
@@ -198,13 +183,13 @@ func actionRunMulti(st *Store) {
 			}(i, s)
 		}
 		wg.Wait()
-		return nil
-	}); err != nil {
-		return // прервано (Ctrl+C)
-	}
-	fmt.Println()
-	for _, res := range results {
-		printRunResult(res)
-	}
-	pressEnter()
+		var out []string
+		for i, res := range results {
+			if i > 0 {
+				out = append(out, "")
+			}
+			out = append(out, runResultLines(res)...)
+		}
+		return out
+	}, nil)
 }

@@ -1,14 +1,13 @@
 package app
 
-// Полноэкранный мультивыбор (чекбоксы) с мышью — замена huh.MultiSelect.
-// Клик по строке / пробел — отметить; Enter — готово; Esc — отмена; колесо — курсор.
+// Панельный мультивыбор (чекбоксы) в едином стиле с главным экраном.
+// Строки-чекбоксы внутри рамки-панели; клик по строке / пробел — отметить;
+// Enter — готово; Esc — отмена; колесо — курсор; список прокручивается.
 
 import (
-	"fmt"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
 type multiOption struct {
@@ -31,6 +30,7 @@ type multiModel struct {
 
 func (m *multiModel) Init() tea.Cmd { return nil }
 
+// move двигает курсор по кругу.
 func (m *multiModel) move(delta int) {
 	n := len(m.opts)
 	if n > 0 {
@@ -38,6 +38,7 @@ func (m *multiModel) move(delta int) {
 	}
 }
 
+// toggle переключает отметку пункта.
 func (m *multiModel) toggle(i int) {
 	if i >= 0 && i < len(m.checked) {
 		m.checked[i] = !m.checked[i]
@@ -63,7 +64,7 @@ func (m *multiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter":
 			m.ok = true
 			return m, tea.Quit
-		case "esc", "ctrl+c":
+		case "q", "esc", "ctrl+c":
 			m.ok = false
 			return m, tea.Quit
 		}
@@ -83,60 +84,40 @@ func (m *multiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// visibleCount — сколько кнопок-чекбоксов помещается по высоте.
-func (m *multiModel) visibleCount() int {
-	h := m.height
-	if h <= 0 {
-		h = 40
-	}
-	if avail := h - 8; avail >= 3 {
-		return avail / 3
-	}
-	return 1
-}
-
-func (m *multiModel) View() string {
-	var lines []string
-	var regions []hitRegion
-	lines = append(lines, styViolet.Bold(true).Render(m.title), "")
-
-	vis := m.visibleCount()
-	if m.cursor < m.offset {
-		m.offset = m.cursor
-	}
-	if m.cursor >= m.offset+vis {
-		m.offset = m.cursor - vis + 1
-	}
-	if m.offset < 0 {
-		m.offset = 0
-	}
-	end := min(m.offset+vis, len(m.opts))
-
-	if m.offset > 0 {
-		lines = append(lines, styDim.Render(fmt.Sprintf(T.MoreAbove, m.offset)))
-	}
-	w := btnWidth(m.width)
-	for i := m.offset; i < end; i++ {
+// optionRows формирует строки-чекбоксы с указателем на выделенном.
+func (m *multiModel) optionRows() []string {
+	rows := make([]string, len(m.opts))
+	for i, o := range m.opts {
 		box := styDim.Render("[ ]")
 		if m.checked[i] {
 			box = styGreen.Render("[✓]")
 		}
-		btn := boxButton(box+" "+m.opts[i].Label, w, i == m.cursor)
-		y0 := len(lines)
-		lines = append(lines, strings.Split(btn, "\n")...)
-		regions = append(regions, hitRegion{index: i, x0: 0, x1: lipgloss.Width(btn) - 1, y0: y0, y1: len(lines) - 1})
+		rows[i] = listPointer(box+" "+o.Label, i == m.cursor, true)
 	}
-	if end < len(m.opts) {
-		lines = append(lines, styDim.Render(fmt.Sprintf(T.MoreBelow, len(m.opts)-end)))
-	}
+	return rows
+}
 
-	lines = append(lines, "", styDim.Render(T.TuiHintMulti))
+// View рисует панель с чекбоксами и подсказку; заполняет m.regions.
+func (m *multiModel) View() string {
+	lay := computeFormLayout(m.width, m.height, 0, false)
+	box, rowY := panelBox(m.title, m.optionRows(), lay.panelW, lay.panelH, true, m.cursor, &m.offset)
+
+	var regions []hitRegion
+	for i, ry := range rowY {
+		if ry >= 0 {
+			regions = append(regions, hitRegion{index: i, x0: 0, x1: lay.panelW - 1, y0: ry, y1: ry})
+		}
+	}
 	m.regions = regions
+
+	lines := append([]string{}, box...)
+	lines = append(lines, "", styDim.Render(T.TuiHintMulti))
 	return strings.Join(lines, "\n")
 }
 
 // runMulti показывает чекбоксы и возвращает выбранные значения и ok.
-func runMulti(title string, opts []multiOption) ([]string, bool) {
+// Объявлено как var — тесты подменяют его, чтобы прогонять мастера без TTY.
+var runMulti = func(title string, opts []multiOption) ([]string, bool) {
 	checked := make([]bool, len(opts))
 	for i, o := range opts {
 		checked[i] = o.Selected

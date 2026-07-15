@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 )
 
 // sshConfigHost — распарсенный Host-блок из ~/.ssh/config.
@@ -31,7 +30,7 @@ func parseSSHConfig(path string) ([]sshConfigHost, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	var all []sshConfigHost // включая wildcard-блоки (для дефолтов Host *)
 	var cur *sshConfigHost
@@ -120,8 +119,7 @@ func importFromSSHConfig(st *Store) {
 	path := filepath.Join(home, ".ssh", "config")
 	hosts, err := parseSSHConfig(path)
 	if err != nil {
-		fmt.Println(styRed.Render(fmt.Sprintf(T.ImportReadErr, err)))
-		pressEnter()
+		showPage(T.ToolImport, []string{styRed.Render(fmt.Sprintf(T.ImportReadErr, err))})
 		return
 	}
 
@@ -145,8 +143,7 @@ func importFromSSHConfig(st *Store) {
 		candidates = append(candidates, h)
 	}
 	if len(candidates) == 0 {
-		fmt.Println(styYellow.Render(T.ImportNothing))
-		pressEnter()
+		showPage(T.ToolImport, []string{styYellow.Render(T.ImportNothing)})
 		return
 	}
 
@@ -178,14 +175,13 @@ func importFromSSHConfig(st *Store) {
 		}
 		st.Servers = append(st.Servers, &Server{
 			ID: newID(), Name: uniqueName(st, h.Alias), Host: hostName, Port: h.Port,
-			User: user, Key: h.Key, Auth: auth, ProxyJump: h.ProxyJump, Tags: []string{},
+			User: user, Key: h.Key, Auth: auth, ProxyJump: h.ProxyJump,
 		})
 		added++
 	}
 	st.MustSave()
 	maybeRefreshSSHConfig(st)
-	fmt.Println(styGreen.Render(fmt.Sprintf(T.ImportAdded, added)))
-	time.Sleep(900 * time.Millisecond)
+	showToast(styGreen.Render(fmt.Sprintf(T.ImportAdded, added)))
 }
 
 // serverExists сообщает, есть ли уже сервер с таким host:port и пользователем.

@@ -5,13 +5,13 @@ package app
 
 type L struct {
 	// общее
-	Yes, No, Back, Done, PressEnter, Cancelled string
+	Yes, No, Back, Done, PressEnter, Canceled string
 
 	// баннер
-	Tagline string
 
 	// config
 	ErrReadConfig, BackupSaved, ErrSaveConfig string
+	ErrConfigReadOnly, ConfigBrokenHint       string
 
 	// sshkey
 	AskGenKey, ErrKeyMissing, KeyCreated string
@@ -22,18 +22,18 @@ type L struct {
 	ErrCmdExitCode, AskPasswordFor, ErrNoPwInKeychain           string
 
 	// таблица
-	ColName, ColUser, ColAddr, ColPort, ColTags, ColPing, ColNotes, MsFmt string
+	ColName, ColUser, ColAddr, ColPort, ColPing, ColNotes, MsFmt string
 
 	// подключение
 	PwCopiedClipboard, Connecting, SessionEnded, CopiedCmd string
 
 	// инфо
-	Gathering, LblOS, LblHost, LblKernel, LblUptime, LblIP      string
-	LblLoad, LblMemory, LblDiskRoot, LblDisk, CPUsFmt, TopProcs string
+	Gathering, LblOS, LblHost, LblKernel, LblUptime   string
+	LblLoad, LblMemory, LblDiskRoot, LblDisk, CPUsFmt string
 
 	// монитор
-	ErrUnexpectedResp, MonError, MonQuitHint, MonConnecting string
-	LblCPU, LblRAM, LblNet, LiveSuffix, MonitorStopped      string
+	ErrUnexpectedResp      string
+	LblCPU, LblRAM, LblNet string
 
 	// команды
 	AskCommand, RunningOn, RunningOnMany, NoServersYet string
@@ -63,7 +63,7 @@ type L struct {
 	SetupAborted, ServerNotSaved, SumServer, SumLogin, SumPassword   string
 	SumKey, SumKeychain, SumKeychainVal, ConfiguredOK, WarnNoPwLogin string
 	UserPwCopied, AskConnectNow, TitleNewServer, AskName, AskHost    string
-	AskPort, AskTags, AskHowAdd, OptWithBootstrap, OptPlainAdd       string
+	AskPort, AskHowAdd, OptWithBootstrap, OptPlainAdd                string
 	AskRootAuth, OptRootPassword, OptRootPasswordKeychain            string
 	OptRootKeyFile, AskRootPassword, AskRootKeyPath, ErrNoKeySetup   string
 	CheckingRootAccess, RootConfirmed, AskUser, AskAuth, OptAuthKey  string
@@ -74,28 +74,72 @@ type L struct {
 	NoPasswordsStored, TitlePasswords, PwUserCopied, InstallingKey string
 	KeyInstalled, AskReboot, AskSudoPassword, RebootSent           string
 	FingerprintReset, TitleEdit, FldName, FldHost, FldPort         string
-	FldUser, FldKey, FldTags, FldNotes, KeyNoneLabel, AskNewName   string
+	FldUser, FldKey, FldNotes, KeyNoneLabel, AskNewName            string
 	FldProxy, AskProxy                                             string
 	AskNewHost, AskNewPortEdit, AskNewUser, AskKeyOrEmpty          string
-	AskTagsEdit, AskNotes, AskDelete, DeletedMsg                   string
-	MenuConnect, MenuInfo, MenuMonitor, MenuRun, MenuPasswords     string
+	AskNotes, AskDelete, DeletedMsg                                string
+	MenuConnect, MenuInfo, MenuRun, MenuPasswords                  string
 	MenuInstallKey, MenuBootstrap, MenuCopyCmd, MenuForget         string
-	MenuReboot, MenuEdit, MenuDelete, AskActions                   string
+	MenuReboot, MenuEdit, MenuDelete, MenuTunnels, MenuTransfer    string
+
+	// подключение в новом окне
+	ErrNoTerminal string
+
+	// полноэкранный просмотрщик
+	PageScroll, PageBack string
+
+	// журнал
+	ToolJournal, MenuJournalDesc, JournalTitle, JournalEmpty string
+	JournalColWhen, JournalColWhat, JournalColDetails        string
+	JournalKindConnect, JournalKindRun, JournalKindTransfer  string
+	JournalClearKey, JournalClearAsk, JournalCleared         string
+	JournalSecretsHint                                       string
+
+	// передача файлов (scp)
+	TransferTitle, TransferUpload, TransferDownload             string
+	TransferUploadDesc, TransferDownloadDesc                    string
+	AskLocalPath, AskRemoteDest, AskRemotePath, AskLocalDest    string
+	TransferUpFmt, TransferDownFmt, TransferDone                string
+	TransferFailedFmt                                           string
+	ErrPathEmpty, ErrPathMissing, ErrDirMissing, ErrPathNewline string
+
+	// мультивыбор и групповые действия
+	BatchRun, BatchMove, BatchDelete, BatchClear, BatchHint string
+	PanelBatchFmt, PanelSelected, BatchSelectedFmt          string
+	BatchFooterFmt, BatchMoveTitleFmt                       string
+	BatchMovedFmt, BatchDeleteAskFmt, BatchDeletedFmt       string
+	HelpSelect                                              string
+
+	// дашборд здоровья парка
+	ToolHealth, MenuHealthDesc, HealthTitle, HealthColStatus string
+	HealthCollectingFmt, HealthOnlineFmt, HealthNoDataFmt    string
+
+	// проброс портов
+	TunnelsTitle, TunnelsHeader, LblTunnels, NoTunnelsYet       string
+	TunnelAdd, TunnelAddDesc, TunnelDelete, TunnelDeleteDesc    string
+	TunnelStopAll, TunnelStopAllDesc, TunnelUp, TunnelDown      string
+	TunnelKindLocal, TunnelKindRemote, TunnelKindDynamic        string
+	TunnelDescLocal, TunnelDescRemote, TunnelDescDynamic        string
+	AskTunnelKind, AskTunnelLocalPort, AskTunnelRemoteHost      string
+	AskTunnelRemotePort, AskTunnelSocksPort, AskTunnelStartNow  string
+	AskDeleteTunnel, TunnelStarted, TunnelStopped, TunnelExists string
+	TunnelsStoppedFmt, ErrTunnelPortBusy, ErrTunnelHost         string
+	ErrTunnelKind, ErrTunnelStart                               string
 
 	// инструменты и настройки
 	ExportHeader, ExportedTo, ExportHint, TitlePubkey, PubkeyCopied string
 	SetDefaultUser, SetSSHKey, SetTimeout, SetLanguage              string
 	SetBootstrapSteps, TitleSettings, AskDefaultUser, AskSSHKeyPath string
-	AskTimeout, TitleTools, ToolMulti, ToolExport, ToolPubkey       string
-	ToolSettings, AskLanguage, StepsSaved                           string
+	AskTimeout, ToolMulti, ToolExport, ToolPubkey                   string
+	ToolSettings, AskLanguage                                       string
 
 	// главное меню
-	EmptyTitle, EmptyBody, MainPrompt, ItemAdd, ItemManage     string
-	ItemTools, ItemExit, AskWhichServer, Goodbye, ProbeSpinner string
+	ItemAdd           string
+	ItemExit, Goodbye string
 
 	// TUI (главный экран)
-	SectionServers, SectionActions, TuiHint, TuiHintEmpty, TuiHintSelect string
-	TuiHintInput, TuiHintMulti, MoreAbove, MoreBelow, BackupServersFmt   string
+	TuiHintSelect                                                      string
+	TuiHintInput, TuiHintMulti, MoreAbove, MoreBelow, BackupServersFmt string
 
 	// импорт / бэкапы / сниппеты / темы
 	ImportReadErr, ImportNothing, ImportTitle, ImportAdded                       string
@@ -103,18 +147,35 @@ type L struct {
 	BackupNothing, BackupConfirm, SetTheme, AskTheme                             string
 	SnippetManual, SnippetSaveQ, AskSnippetName                                  string
 	ToolSnippets, SnippetsTitle, NoSnippetsYet, SnippetDeleted, AskDeleteSnippet string
-	NoLastConnected, LastConnFmt                                                 string
 	RelNow, RelMin, RelHour, RelDay                                              string
 
+	// панельный лейаут (v2)
+	PanelServers, PanelMenu, PanelActions, PanelStats, PanelDesc     string
+	PanelHint, StatsLoading, StatsError, NoServersHint               string
+	StatsOffline, TermTooSmall                                       string
+	MenuAddDesc, MenuMultiDesc, MenuImportDesc, MenuExportDesc       string
+	MenuBackupsDesc                                                  string
+	MenuSnippetsDesc, MenuPubkeyDesc, MenuSettingsDesc, MenuExitDesc string
+
 	// футер, фильтр, сортировка, помощь
-	FooterServer, FooterAction, FilterPrompt, FilterNoMatch string
-	SortByName, SortByPing, SortByOnline                    string
-	ConfirmConnectTitle, ConnectBtn, CancelBtn              string
-	SetConfirmConnect, AskConfirmConnect                    string
-	HelpTitle, HelpClose, HelpNavigate, HelpConnect         string
-	HelpInfo, HelpBootstrap, HelpManage, HelpEdit           string
-	HelpReboot, HelpDelete, HelpFavorite, HelpSort          string
-	HelpFilter, HelpHelp, HelpQuit                          string
+	FilterPrompt                                    string
+	SortByName, SortByPing, SortByOnline            string
+	HelpTitle, HelpClose, HelpNavigate, HelpConnect string
+	HelpTunnels                                     string
+	HelpFavorite, HelpSort                          string
+	HelpFilter, HelpHelp, HelpQuit                  string
+
+	// папки-группы в списке серверов
+	FolderRoot, PanelFolder, FolderServersFmt, FolderHint string
+	FilterHint, MoveHint                                  string
+	HelpPanels, HelpJump, HelpOpenActions, HelpBack       string
+	HelpFolderNew, HelpFolderMove, HelpFolderDel          string
+	HelpFolderRename, FolderRenameTitle, FolderNewTitle   string
+	HelpFolderOrder                                       string
+	FolderDeleteBody, PromptHint, ConfirmHint             string
+	AskFolderName, ErrFolderExists                        string
+	FolderNewOption, AskDeleteFolder                      string
+	FldFolder, AskFolderChoose                            string
 
 	// CLI
 	UsageTagline, UsageMenu, UsageConnect, UsageList, UsageAdd string
@@ -128,33 +189,30 @@ type L struct {
 	RootAuthHint    string   // подсказка про вход root после харденинга
 
 	// публичные IP-адреса
-	LblPublicIP    string // заголовок панели
-	DetectingPubIP string // спиннер
-	PubIPUnique    string // «Уникальные: %s»
-	PubIPNone      string // не удалось определить
-	SetShowPubIP   string // пункт настроек
-	AskShowPubIP   string // вопрос-переключатель
 
 	// все IP-адреса сервера / режим открытия SSH
-	LblIPs            string // метка блока адресов в инфо-панели
-	GatheringOnAdd    string // спиннер при инспекции после добавления
-	SetConnectMode    string // пункт настроек
-	AskConnectMode    string // вопрос
-	ConnectModeWindow string // «в новом окне»
-	ConnectModeInline string // «в этом же окне»
-	OpenedNewWindow   string // сообщение после запуска нового окна
-	ErrOpenWindow     string // ошибка открытия окна
+	LblIPs         string // метка блока адресов в инфо-панели
+	SetConnectMode string // пункт настроек
+	// описания пунктов настроек (правая панель панельного меню)
+	DescLanguage, DescTheme, DescConnectMode string
+	DescDefaultUser, DescSSHKey, DescTimeout string
+	DescBootstrapSteps                       string
+	AskConnectMode                           string // вопрос
+	ConnectModeWindow                        string // «в новом окне»
+	ConnectModeInline                        string // «в этом же окне»
+	OpenedNewWindow                          string // сообщение после запуска нового окна
+	ErrOpenWindow                            string // ошибка открытия окна
 }
 
 var trRU = L{
 	Yes: "Да", No: "Нет", Back: "← Назад", Done: "← Готово",
-	PressEnter: "Enter — продолжить ", Cancelled: "отменено",
+	PressEnter: "Enter — продолжить ", Canceled: "отменено",
 
-	Tagline: "  менеджер VPS · выбери сервер — и ты внутри",
-
-	ErrReadConfig: "Не удалось прочитать конфиг: %s",
-	BackupSaved:   "Копия сохранена в %s",
-	ErrSaveConfig: "Не удалось сохранить конфиг: %s",
+	ErrReadConfig:     "Не удалось прочитать конфиг: %s",
+	BackupSaved:       "Копия сохранена в %s",
+	ErrSaveConfig:     "Не удалось сохранить конфиг: %s",
+	ErrConfigReadOnly: "Конфиг не прочитан — запись запрещена, чтобы не потерять серверы.",
+	ConfigBrokenHint:  "Восстановите его: Меню → «Восстановить конфиг из бэкапа» (или почините servers.json вручную).",
 
 	AskGenKey:     "SSH-ключ %s не найден. Сгенерировать новый ed25519-ключ?",
 	ErrKeyMissing: "ключ %s отсутствует",
@@ -173,7 +231,7 @@ var trRU = L{
 	ErrNoPwInKeychain: "пароль не найден в Keychain",
 
 	ColName: "Имя", ColUser: "Логин", ColAddr: "Адрес", ColPort: "Порт",
-	ColTags: "Теги", ColPing: "Пинг", ColNotes: "Заметки", MsFmt: "%s мс",
+	ColPing: "Пинг", ColNotes: "Заметки", MsFmt: "%s мс",
 
 	PwCopiedClipboard: "🔑 Пароль скопирован в буфер обмена — вставьте по запросу",
 	Connecting:        "⇄ Подключаюсь: ",
@@ -181,14 +239,12 @@ var trRU = L{
 	CopiedCmd:         "✓ Скопировано: ",
 
 	Gathering: "Собираю данные с %s…",
-	LblOS:     "ОС", LblHost: "Хост", LblKernel: "Ядро", LblUptime: "Аптайм", LblIP: "IP",
+	LblOS:     "ОС", LblHost: "Хост", LblKernel: "Ядро", LblUptime: "Аптайм",
 	LblLoad: "Load", LblMemory: "Память", LblDiskRoot: "Диск /", LblDisk: "Диск",
-	CPUsFmt: "  (%d CPU)", TopProcs: "Топ процессов (CPU)",
+	CPUsFmt: "  (%d CPU)",
 
 	ErrUnexpectedResp: "неожиданный ответ сервера",
-	MonError:          "Ошибка: ", MonQuitHint: "  q — выход", MonConnecting: "  Подключаюсь…",
-	LblCPU: "CPU", LblRAM: "RAM", LblNet: "Сеть",
-	LiveSuffix: " · live · q — выход", MonitorStopped: "Монитор остановлен: ",
+	LblCPU:            "CPU", LblRAM: "RAM", LblNet: "Сеть",
 
 	AskCommand: "Команда:", RunningOn: "Выполняю на %s…",
 	RunningOnMany: "Выполняю на %d серверах…", NoServersYet: "Нет серверов.",
@@ -266,7 +322,6 @@ var trRU = L{
 	AskName:                 "Имя (короткий алиас):",
 	AskHost:                 "Адрес (IP или домен):",
 	AskPort:                 "SSH-порт:",
-	AskTags:                 "Теги через пробел (опционально):",
 	AskHowAdd:               "Как добавить сервер?",
 	OptWithBootstrap:        "🚀 С первоначальной настройкой (root → sudo-юзер, ключ, firewall…)",
 	OptPlainAdd:             "📎 Просто добавить (сервер уже настроен)",
@@ -300,23 +355,110 @@ var trRU = L{
 	FingerprintReset:  "✓ Отпечаток %s сброшен.",
 	TitleEdit:         "Редактирование %s:",
 	FldName:           "Имя: ", FldHost: "Адрес: ", FldPort: "Порт: %d", FldUser: "Пользователь: ",
-	FldKey: "Ключ: ", FldTags: "Теги: ", FldNotes: "Заметки: ", KeyNoneLabel: "— (пароль)",
+	FldKey: "Ключ: ", FldNotes: "Заметки: ", KeyNoneLabel: "— (пароль)",
 	FldProxy: "Бастион (ProxyJump): ", AskProxy: "ProxyJump (user@host[:port], пусто — без бастиона):",
 	AskNewName: "Новое имя:", AskNewHost: "Новый адрес:", AskNewPortEdit: "Новый порт:",
 	AskNewUser: "Новый пользователь:", AskKeyOrEmpty: "Путь к ключу (пусто — вход по паролю):",
-	AskTagsEdit: "Теги через пробел:", AskNotes: "Заметки:",
+	AskNotes:    "Заметки:",
 	AskDelete:   "Удалить %s (%s)?",
 	DeletedMsg:  "✓ Сервер %s удалён (пароли из Keychain тоже).",
 	MenuConnect: "🔌 Подключиться", MenuInfo: "📊 Информация о сервере",
-	MenuMonitor: "📈 Live-монитор", MenuRun: "▶️  Выполнить команду",
+	MenuRun:        "▶️ Выполнить команду",
 	MenuPasswords:  "🔑 Показать пароли (Keychain)",
 	MenuInstallKey: "🧩 Установить SSH-ключ (вход без пароля)",
-	MenuBootstrap:  "🛠  Первоначальная настройка (bootstrap)",
+	MenuBootstrap:  "🛠 Первоначальная настройка (bootstrap)",
 	MenuCopyCmd:    "📋 Скопировать ssh-команду",
-	MenuForget:     "♻️  Сбросить отпечаток хоста",
+	MenuForget:     "♻️ Сбросить отпечаток хоста",
 	MenuReboot:     "🔁 Перезагрузить сервер",
-	MenuEdit:       "✏️  Редактировать", MenuDelete: "🗑  Удалить",
-	AskActions: "%s — действия:",
+	MenuEdit:       "✏️ Редактировать", MenuDelete: "🗑  Удалить",
+	MenuTunnels: "🔀 Проброс портов", MenuTransfer: "📦 Передача файлов",
+
+	ErrNoTerminal: "Не найден эмулятор терминала. Задайте $TERMINAL или переключитесь на «в этом же окне» в Настройках.",
+
+	PageScroll: "↑↓ прокрутка",
+	PageBack:   "esc — назад",
+
+	ToolJournal:     "📜 Журнал",
+	MenuJournalDesc: "Что unissh делал на серверах: подключения, команды и их коды выхода, передачи файлов. Лежит в ~/.config/unissh/history.jsonl (0600).",
+	JournalTitle:    "Журнал",
+	JournalEmpty:    "Журнал пуст — здесь появятся подключения и команды.",
+	JournalColWhen:  "Когда", JournalColWhat: "Что", JournalColDetails: "Подробности",
+	JournalKindConnect: "вход", JournalKindRun: "команда", JournalKindTransfer: "файлы",
+	JournalClearKey:    "очистить",
+	JournalClearAsk:    "Удалить журнал целиком?",
+	JournalCleared:     "✓ Журнал очищен",
+	JournalSecretsHint: "В командах могли остаться секреты — файл доступен только вам (0600).",
+
+	TransferTitle:        "Передача файлов",
+	TransferUpload:       "⬆️ Отправить на сервер",
+	TransferDownload:     "⬇️ Скачать с сервера",
+	TransferUploadDesc:   "Скопировать локальный файл или каталог на сервер (scp -r).",
+	TransferDownloadDesc: "Забрать файл или каталог с сервера к себе (scp -r).",
+	AskLocalPath:         "Что отправить (путь у вас): ",
+	AskRemoteDest:        "Куда на сервере: ",
+	AskRemotePath:        "Что скачать (путь на сервере): ",
+	AskLocalDest:         "Куда сохранить (каталог у вас): ",
+	TransferUpFmt:        "Отправляю %s → %s",
+	TransferDownFmt:      "Скачиваю %s ← %s",
+	TransferDone:         "✓ Готово",
+	TransferFailedFmt:    "scp завершился с кодом %d",
+	ErrPathEmpty:         "Путь не может быть пустым",
+	ErrPathMissing:       "Такого файла или каталога нет",
+	ErrDirMissing:        "Нужен существующий каталог",
+	ErrPathNewline:       "Путь не должен содержать перевод строки",
+
+	BatchRun:    "▶️ Выполнить команду на всех",
+	BatchMove:   "📁 Перенести в папку",
+	BatchDelete: "🗑  Удалить выделенные",
+	BatchClear:  "✕  Снять выделение",
+	BatchHint:   "space — отметить сервер (на папке — всю группу), esc — снять выделение.",
+
+	PanelBatchFmt:     "ГРУППА (%d)",
+	PanelSelected:     "ВЫДЕЛЕНО",
+	BatchSelectedFmt:  "Выбрано серверов: %d",
+	BatchFooterFmt:    "выделено: %d  ·  enter — групповые действия  ·  esc — снять",
+	BatchMoveTitleFmt: "Куда перенести (%d шт.)",
+	BatchMovedFmt:     "✓ Перенесено серверов: %d → %s",
+	BatchDeleteAskFmt: "Удалить %d сервер(ов): %s?",
+	BatchDeletedFmt:   "✓ Удалено серверов: %d (пароли из Keychain тоже).",
+
+	ToolHealth:          "❤️ Здоровье парка",
+	MenuHealthDesc:      "Собрать CPU, память, диск и load со всех серверов сразу и показать одной таблицей. Самые нагруженные — наверху.",
+	HealthTitle:         "Здоровье парка",
+	HealthColStatus:     "Состояние",
+	HealthCollectingFmt: "Опрашиваю серверы (%d)…",
+	HealthOnlineFmt:     "Онлайн: %d из %d",
+	HealthNoDataFmt:     "без метрик: %d",
+
+	TunnelsTitle:  "Проброс портов",
+	TunnelsHeader: "Туннели живут, пока открыт unissh. Enter — включить/выключить.",
+	LblTunnels:    "Туннели",
+	NoTunnelsYet:  "Правил пока нет — добавьте первое.",
+	TunnelAdd:     "➕ Добавить правило", TunnelAddDesc: "Новый -L, -R или -D",
+	TunnelDelete: "🗑  Удалить правило", TunnelDeleteDesc: "Убрать из конфига",
+	TunnelStopAll: "⏹  Остановить все", TunnelStopAllDesc: "Погасить туннели этого сервера",
+	TunnelUp: "работает", TunnelDown: "остановлен",
+	TunnelKindLocal:     "L — локальный порт (-L)",
+	TunnelKindRemote:    "R — обратный проброс (-R)",
+	TunnelKindDynamic:   "D — SOCKS5-прокси (-D)",
+	TunnelDescLocal:     "Порт у вас → хост:порт со стороны сервера. Классика: БД на 5432.",
+	TunnelDescRemote:    "Порт на сервере → хост:порт с вашей машины. Показать локальный сайт.",
+	TunnelDescDynamic:   "SOCKS5-прокси на вашем порту: весь трафик идёт через сервер.",
+	AskTunnelKind:       "Вид проброса",
+	AskTunnelLocalPort:  "Локальный порт: ",
+	AskTunnelRemoteHost: "Хост назначения (со стороны сервера): ",
+	AskTunnelRemotePort: "Порт назначения: ",
+	AskTunnelSocksPort:  "Порт SOCKS5-прокси: ",
+	AskTunnelStartNow:   "Запустить прямо сейчас?",
+	AskDeleteTunnel:     "Удалить правило %s?",
+	TunnelStarted:       "✓ Туннель поднят",
+	TunnelStopped:       "✓ Туннель остановлен",
+	TunnelExists:        "Такое правило уже есть",
+	TunnelsStoppedFmt:   "Остановлено туннелей: %d",
+	ErrTunnelPortBusy:   "Локальный порт %d уже занят другим туннелем",
+	ErrTunnelHost:       "Нужен хост назначения без пробелов и двоеточий",
+	ErrTunnelKind:       "Неизвестный вид проброса",
+	ErrTunnelStart:      "Туннель не поднялся: %s",
 
 	ExportHeader: "# Сгенерировано unissh — не редактируйте вручную",
 	ExportedTo:   "✓ Экспортировано в %s",
@@ -331,30 +473,16 @@ var trRU = L{
 	AskDefaultUser:    "Пользователь по умолчанию:",
 	AskSSHKeyPath:     "Путь к SSH-ключу:",
 	AskTimeout:        "Таймаут (сек):",
-	TitleTools:        "Инструменты:",
-	ToolMulti:         "▶️  Выполнить команду на нескольких серверах",
+	ToolMulti:         "▶️ Выполнить команду на нескольких серверах",
 	ToolExport:        "📤 Экспорт в ~/.ssh/config (ssh <имя>)",
 	ToolPubkey:        "🔑 Показать/скопировать публичный ключ",
-	ToolSettings:      "⚙️  Настройки",
+	ToolSettings:      "⚙️ Настройки",
 	AskLanguage:       "Язык интерфейса:",
-	StepsSaved:        "✓ Шаги по умолчанию сохранены.",
 
-	EmptyTitle: "Серверов пока нет.",
-	EmptyBody: "Добавьте первый — unissh сам обновит его, создаст sudo-пользователя\n" +
-		"со сгенерированным паролем, установит ключ и включит защиту.",
-	MainPrompt:     "Выберите сервер (Enter — подключиться) или действие:",
-	ItemAdd:        "➕ Добавить сервер",
-	ItemManage:     "🛠  Управление серверами",
-	ItemTools:      "🧰 Инструменты",
-	ItemExit:       "⏻  Выход",
-	AskWhichServer: "Какой сервер?",
-	Goodbye:        "До встречи!",
-	ProbeSpinner:   "Проверяю доступность серверов…",
+	ItemAdd:  "➕ Добавить сервер",
+	ItemExit: "⏻  Выход",
+	Goodbye:  "До встречи!",
 
-	SectionServers:   "СЕРВЕРЫ",
-	SectionActions:   "ДЕЙСТВИЯ",
-	TuiHint:          "↑↓/клик — выбор · Enter — подключиться · m — управление · q — выход",
-	TuiHintEmpty:     "↑↓/клик — выбор · Enter — выбрать · q — выход",
 	TuiHintSelect:    "↑↓/клик — выбор · Enter — выбрать · Esc — назад",
 	TuiHintInput:     "Enter — подтвердить · Esc — отмена",
 	TuiHintMulti:     "↑↓ — выбор · пробел/клик — отметить · Enter — готово · Esc — отмена",
@@ -382,40 +510,74 @@ var trRU = L{
 	NoSnippetsYet:    "Сниппетов пока нет — их можно сохранять при выполнении команды.",
 	SnippetDeleted:   "✓ Сниппет удалён.",
 	AskDeleteSnippet: "Удалить сниппет «%s»?",
-	NoLastConnected:  "ещё не подключались",
-	LastConnFmt:      "заходили %s назад",
 	RelNow:           "только что",
 	RelMin:           "%dм",
 	RelHour:          "%dч",
 	RelDay:           "%dд",
 
-	FooterServer:        "enter/c подключиться · i инфо · m меню · e правка · d удалить · / поиск · ? все клавиши",
-	FooterAction:        "enter выбрать · s сортировка · / поиск · ? все клавиши · q выход",
-	FilterPrompt:        "🔍 ",
-	FilterNoMatch:       "нет серверов по фильтру",
-	SortByName:          "сортировка: по имени",
-	SortByPing:          "сортировка: по пингу",
-	SortByOnline:        "сортировка: по доступности",
-	ConfirmConnectTitle: "Подключиться к серверу %s?",
-	ConnectBtn:          "❯ Подключиться",
-	CancelBtn:           "✗ Отмена",
-	SetConfirmConnect:   "Подтверждать подключение: ",
-	AskConfirmConnect:   "Спрашивать подтверждение при подключении?",
-	HelpTitle:           "Горячие клавиши",
-	HelpClose:           "любая клавиша — закрыть",
-	HelpNavigate:        "навигация",
-	HelpConnect:         "подключиться",
-	HelpInfo:            "информация о сервере",
-	HelpBootstrap:       "первоначальная настройка",
-	HelpManage:          "меню управления сервером",
-	HelpEdit:            "редактировать",
-	HelpReboot:          "перезагрузить",
-	HelpDelete:          "удалить",
-	HelpFavorite:        "избранное (★)",
-	HelpSort:            "сменить сортировку",
-	HelpFilter:          "поиск/фильтр",
-	HelpHelp:            "эта справка",
-	HelpQuit:            "выход",
+	PanelServers:     "СЕРВЕРЫ",
+	PanelMenu:        "МЕНЮ",
+	PanelActions:     "ДЕЙСТВИЯ",
+	PanelStats:       "СТАТИСТИКА",
+	PanelDesc:        "ОПИСАНИЕ",
+	PanelHint:        "Tab — панель · Enter/→ — действия · c — подключиться · / — поиск · n/m/r/d — папки · ? — справка · q — выход",
+	StatsLoading:     "загружаю…",
+	StatsError:       "нет данных",
+	StatsOffline:     "сервер недоступен",
+	TermTooSmall:     "Окно терминала слишком маленькое. Нужно минимум %d×%d, сейчас %d×%d — увеличьте окно.",
+	NoServersHint:    "Серверов нет — добавьте первый в меню слева.",
+	MenuAddDesc:      "Добавить новый VPS: вручную или с первоначальной настройкой (bootstrap) — обновление системы, sudo-пользователь, ключ, firewall, fail2ban.",
+	MenuMultiDesc:    "Выполнить одну команду сразу на нескольких серверах (параллельно).",
+	MenuImportDesc:   "Импортировать серверы из вашего ~/.ssh/config (Host-блоки) — быстро перенести весь парк.",
+	MenuExportDesc:   "Выгрузить серверы в ~/.ssh/config, чтобы работал `ssh <имя>` из любого терминала.",
+	MenuBackupsDesc:  "Восстановить конфиг из автоматического снапшота (создаётся перед каждым изменением).",
+	MenuSnippetsDesc: "Сохранённые команды для быстрого выполнения на серверах; здесь можно удалить лишние.",
+	MenuPubkeyDesc:   "Показать и скопировать публичный SSH-ключ unissh для добавления на серверы.",
+	MenuSettingsDesc: "Язык, тема, режим подключения, подтверждение, шаги bootstrap по умолчанию и др.",
+	MenuExitDesc:     "Выйти из unissh.",
+
+	FilterPrompt: "🔍 ",
+	SortByName:   "сортировка: по имени",
+	SortByPing:   "сортировка: по пингу",
+	SortByOnline: "сортировка: по доступности",
+	HelpTitle:    "Горячие клавиши",
+	HelpClose:    "любая клавиша — закрыть",
+	HelpNavigate: "навигация",
+	HelpConnect:  "подключиться",
+	HelpTunnels:  "проброс портов",
+	HelpSelect:   "отметить сервер (группу)",
+	HelpFavorite: "избранное (★)",
+	HelpSort:     "сменить сортировку",
+	HelpFilter:   "поиск/фильтр",
+	HelpHelp:     "эта справка",
+	HelpQuit:     "выход",
+
+	FolderRoot:        "Без папки",
+	PanelFolder:       "ПАПКА",
+	FolderServersFmt:  "Серверов:",
+	FolderHint:        "enter/←→ — свернуть/развернуть · n — новая · r — переименовать · d — удалить · shift+↑↓ — порядок",
+	FilterHint:        "печатайте для поиска · Enter — применить · Esc — сбросить",
+	MoveHint:          "перемещение: ↑↓ — выбрать папку · Enter — сохранить · Esc — отмена",
+	HelpPanels:        "переключить панель (серверы/меню)",
+	HelpJump:          "в начало / в конец списка",
+	HelpOpenActions:   "открыть действия сервера / развернуть папку",
+	HelpBack:          "назад / свернуть папку",
+	HelpFolderNew:     "создать папку",
+	HelpFolderMove:    "взять сервер и вести по папкам (Enter — сохранить)",
+	HelpFolderDel:     "удалить папку (серверы — в корень)",
+	AskFolderName:     "Имя папки:",
+	FolderNewTitle:    "Новая папка",
+	FolderRenameTitle: "Переименовать папку",
+	HelpFolderRename:  "переименовать папку",
+	HelpFolderOrder:   "порядок папок",
+	FolderDeleteBody:  "Серверы вернутся в «Без папки».",
+	PromptHint:        "Enter — подтвердить · Esc — отмена",
+	ConfirmHint:       "Enter/y — удалить · Esc/n — отмена",
+	ErrFolderExists:   "папка с таким именем уже есть",
+	FolderNewOption:   "＋ Новая папка…",
+	AskDeleteFolder:   "Удалить папку «%s»?",
+	FldFolder:         "Папка: ",
+	AskFolderChoose:   "Папка сервера:",
 
 	UsageTagline: "Терминальный менеджер VPS: выбери сервер — и ты внутри.",
 	UsageTitle:   "Использование:",
@@ -434,32 +596,31 @@ var trRU = L{
 	ErrTimeoutRange: "введите число больше 0",
 	RootAuthHint:    "После харденинга вход root по паролю отключён — используйте SSH-ключ.",
 
-	LblPublicIP:    "Публичные IP (внешние API)",
-	DetectingPubIP: "Определяю публичные адреса…",
-	PubIPUnique:    "Уникальные: %s",
-	PubIPNone:      "не удалось определить публичные адреса",
-	SetShowPubIP:   "Публичные IP при подключении: ",
-	AskShowPubIP:   "Показывать публичные IP при подключении?",
-
-	LblIPs:            "IP-адреса",
-	GatheringOnAdd:    "Собираю информацию о сервере…",
-	SetConnectMode:    "Открывать SSH: ",
-	AskConnectMode:    "Как открывать SSH-подключение?",
-	ConnectModeWindow: "в новом окне терминала",
-	ConnectModeInline: "в этом же окне",
-	OpenedNewWindow:   "↗ Подключение открыто в новом окне терминала",
-	ErrOpenWindow:     "не удалось открыть новое окно (%v) — подключаюсь здесь",
+	LblIPs:             "IP-адреса",
+	SetConnectMode:     "Открывать SSH: ",
+	DescLanguage:       "Язык интерфейса программы: русский или английский.",
+	DescTheme:          "Цветовая тема оформления. Применяется сразу ко всем экранам.",
+	DescConnectMode:    "Открывать SSH в новом окне терминала или прямо в текущем окне (inline).",
+	DescDefaultUser:    "Имя пользователя, подставляемое по умолчанию при добавлении нового сервера.",
+	DescSSHKey:         "Путь к приватному SSH-ключу, который используется для входа и установки на серверы.",
+	DescTimeout:        "Сколько секунд ждать ответа при проверке статуса сервера (пинг). Больше — надёжнее на медленных каналах.",
+	DescBootstrapSteps: "Какие шаги первоначальной настройки (bootstrap) отмечать по умолчанию для нового сервера.",
+	AskConnectMode:     "Как открывать SSH-подключение?",
+	ConnectModeWindow:  "в новом окне терминала",
+	ConnectModeInline:  "в этом же окне",
+	OpenedNewWindow:    "↗ Подключение открыто в новом окне терминала",
+	ErrOpenWindow:      "не удалось открыть новое окно (%v) — подключаюсь здесь",
 }
 
 var trEN = L{
 	Yes: "Yes", No: "No", Back: "← Back", Done: "← Done",
-	PressEnter: "Enter — continue ", Cancelled: "cancelled",
+	PressEnter: "Enter — continue ", Canceled: "canceled",
 
-	Tagline: "  VPS manager · pick a server and you're in",
-
-	ErrReadConfig: "Failed to read config: %s",
-	BackupSaved:   "Backup saved to %s",
-	ErrSaveConfig: "Failed to save config: %s",
+	ErrReadConfig:     "Failed to read config: %s",
+	BackupSaved:       "Backup saved to %s",
+	ErrSaveConfig:     "Failed to save config: %s",
+	ErrConfigReadOnly: "Config could not be parsed — writing is disabled so your servers are not lost.",
+	ConfigBrokenHint:  "Restore it: Menu → \"Restore config from backup\" (or fix servers.json by hand).",
 
 	AskGenKey:     "SSH key %s not found. Generate a new ed25519 key?",
 	ErrKeyMissing: "key %s is missing",
@@ -478,7 +639,7 @@ var trEN = L{
 	ErrNoPwInKeychain: "password not found in Keychain",
 
 	ColName: "Name", ColUser: "Login", ColAddr: "Address", ColPort: "Port",
-	ColTags: "Tags", ColPing: "Ping", ColNotes: "Notes", MsFmt: "%s ms",
+	ColPing: "Ping", ColNotes: "Notes", MsFmt: "%s ms",
 
 	PwCopiedClipboard: "🔑 Password copied to clipboard — paste when prompted",
 	Connecting:        "⇄ Connecting: ",
@@ -486,14 +647,12 @@ var trEN = L{
 	CopiedCmd:         "✓ Copied: ",
 
 	Gathering: "Gathering data from %s…",
-	LblOS:     "OS", LblHost: "Host", LblKernel: "Kernel", LblUptime: "Uptime", LblIP: "IP",
+	LblOS:     "OS", LblHost: "Host", LblKernel: "Kernel", LblUptime: "Uptime",
 	LblLoad: "Load", LblMemory: "Memory", LblDiskRoot: "Disk /", LblDisk: "Disk",
-	CPUsFmt: "  (%d CPU)", TopProcs: "Top processes (CPU)",
+	CPUsFmt: "  (%d CPU)",
 
 	ErrUnexpectedResp: "unexpected server response",
-	MonError:          "Error: ", MonQuitHint: "  q — quit", MonConnecting: "  Connecting…",
-	LblCPU: "CPU", LblRAM: "RAM", LblNet: "Net",
-	LiveSuffix: " · live · q — quit", MonitorStopped: "Monitor stopped: ",
+	LblCPU:            "CPU", LblRAM: "RAM", LblNet: "Net",
 
 	AskCommand: "Command:", RunningOn: "Running on %s…",
 	RunningOnMany: "Running on %d servers…", NoServersYet: "No servers.",
@@ -571,7 +730,6 @@ var trEN = L{
 	AskName:                 "Name (short alias):",
 	AskHost:                 "Address (IP or domain):",
 	AskPort:                 "SSH port:",
-	AskTags:                 "Tags, space-separated (optional):",
 	AskHowAdd:               "How to add the server?",
 	OptWithBootstrap:        "🚀 With initial setup (root → sudo user, key, firewall…)",
 	OptPlainAdd:             "📎 Just add (server already configured)",
@@ -605,15 +763,15 @@ var trEN = L{
 	FingerprintReset:  "✓ Fingerprint for %s reset.",
 	TitleEdit:         "Editing %s:",
 	FldName:           "Name: ", FldHost: "Address: ", FldPort: "Port: %d", FldUser: "User: ",
-	FldKey: "Key: ", FldTags: "Tags: ", FldNotes: "Notes: ", KeyNoneLabel: "— (password)",
+	FldKey: "Key: ", FldNotes: "Notes: ", KeyNoneLabel: "— (password)",
 	FldProxy: "Bastion (ProxyJump): ", AskProxy: "ProxyJump (user@host[:port], empty — no bastion):",
 	AskNewName: "New name:", AskNewHost: "New address:", AskNewPortEdit: "New port:",
 	AskNewUser: "New user:", AskKeyOrEmpty: "Key path (empty — password login):",
-	AskTagsEdit: "Tags, space-separated:", AskNotes: "Notes:",
+	AskNotes:    "Notes:",
 	AskDelete:   "Delete %s (%s)?",
 	DeletedMsg:  "✓ Server %s deleted (Keychain passwords too).",
 	MenuConnect: "🔌 Connect", MenuInfo: "📊 Server info",
-	MenuMonitor: "📈 Live monitor", MenuRun: "▶️  Run command",
+	MenuRun:        "▶️  Run command",
 	MenuPasswords:  "🔑 Show passwords (Keychain)",
 	MenuInstallKey: "🧩 Install SSH key (passwordless login)",
 	MenuBootstrap:  "🛠  Initial setup (bootstrap)",
@@ -621,7 +779,94 @@ var trEN = L{
 	MenuForget:     "♻️  Reset host fingerprint",
 	MenuReboot:     "🔁 Reboot server",
 	MenuEdit:       "✏️  Edit", MenuDelete: "🗑  Delete",
-	AskActions: "%s — actions:",
+	MenuTunnels: "🔀 Port forwarding", MenuTransfer: "📦 File transfer",
+
+	ErrNoTerminal: "No terminal emulator found. Set $TERMINAL or switch to “same window” in Settings.",
+
+	PageScroll: "↑↓ scroll",
+	PageBack:   "esc — back",
+
+	ToolJournal:     "📜 Journal",
+	MenuJournalDesc: "What unissh did on your servers: connections, commands and their exit codes, file transfers. Stored in ~/.config/unissh/history.jsonl (0600).",
+	JournalTitle:    "Journal",
+	JournalEmpty:    "The journal is empty — connections and commands will show up here.",
+	JournalColWhen:  "When", JournalColWhat: "What", JournalColDetails: "Details",
+	JournalKindConnect: "login", JournalKindRun: "command", JournalKindTransfer: "files",
+	JournalClearKey:    "clear",
+	JournalClearAsk:    "Delete the whole journal?",
+	JournalCleared:     "✓ Journal cleared",
+	JournalSecretsHint: "Commands may contain secrets — the file is readable only by you (0600).",
+
+	TransferTitle:        "File transfer",
+	TransferUpload:       "⬆️  Upload to the server",
+	TransferDownload:     "⬇️  Download from the server",
+	TransferUploadDesc:   "Copy a local file or directory to the server (scp -r).",
+	TransferDownloadDesc: "Fetch a file or directory from the server (scp -r).",
+	AskLocalPath:         "What to upload (local path): ",
+	AskRemoteDest:        "Where on the server: ",
+	AskRemotePath:        "What to download (remote path): ",
+	AskLocalDest:         "Where to save (local directory): ",
+	TransferUpFmt:        "Uploading %s → %s",
+	TransferDownFmt:      "Downloading %s ← %s",
+	TransferDone:         "✓ Done",
+	TransferFailedFmt:    "scp exited with code %d",
+	ErrPathEmpty:         "The path cannot be empty",
+	ErrPathMissing:       "No such file or directory",
+	ErrDirMissing:        "An existing directory is required",
+	ErrPathNewline:       "The path must not contain a newline",
+
+	BatchRun:    "▶️  Run a command on all",
+	BatchMove:   "📁 Move to a folder",
+	BatchDelete: "🗑  Delete selected",
+	BatchClear:  "✕  Clear selection",
+	BatchHint:   "space marks a server (on a folder — the whole group), esc clears the selection.",
+
+	PanelBatchFmt:     "BATCH (%d)",
+	PanelSelected:     "SELECTED",
+	BatchSelectedFmt:  "Servers selected: %d",
+	BatchFooterFmt:    "selected: %d  ·  enter — batch actions  ·  esc — clear",
+	BatchMoveTitleFmt: "Move where (%d servers)",
+	BatchMovedFmt:     "✓ Servers moved: %d → %s",
+	BatchDeleteAskFmt: "Delete %d server(s): %s?",
+	BatchDeletedFmt:   "✓ Servers deleted: %d (Keychain passwords too).",
+
+	ToolHealth:          "❤️ Fleet health",
+	MenuHealthDesc:      "Collect CPU, memory, disk and load from every server at once and show them in one table. The busiest ones come first.",
+	HealthTitle:         "Fleet health",
+	HealthColStatus:     "Status",
+	HealthCollectingFmt: "Polling servers (%d)…",
+	HealthOnlineFmt:     "Online: %d of %d",
+	HealthNoDataFmt:     "no metrics: %d",
+
+	TunnelsTitle:  "Port forwarding",
+	TunnelsHeader: "Tunnels live while unissh is open. Enter toggles one on/off.",
+	LblTunnels:    "Tunnels",
+	NoTunnelsYet:  "No rules yet — add the first one.",
+	TunnelAdd:     "➕ Add rule", TunnelAddDesc: "A new -L, -R or -D",
+	TunnelDelete: "🗑  Delete rule", TunnelDeleteDesc: "Remove it from the config",
+	TunnelStopAll: "⏹  Stop all", TunnelStopAllDesc: "Bring down this server's tunnels",
+	TunnelUp: "up", TunnelDown: "stopped",
+	TunnelKindLocal:     "L — local port (-L)",
+	TunnelKindRemote:    "R — reverse forward (-R)",
+	TunnelKindDynamic:   "D — SOCKS5 proxy (-D)",
+	TunnelDescLocal:     "A port here → host:port as seen from the server. Classic: a DB on 5432.",
+	TunnelDescRemote:    "A port on the server → host:port on your machine. Expose a local site.",
+	TunnelDescDynamic:   "SOCKS5 proxy on your port: all traffic goes through the server.",
+	AskTunnelKind:       "Forwarding type",
+	AskTunnelLocalPort:  "Local port: ",
+	AskTunnelRemoteHost: "Destination host (as seen from the server): ",
+	AskTunnelRemotePort: "Destination port: ",
+	AskTunnelSocksPort:  "SOCKS5 proxy port: ",
+	AskTunnelStartNow:   "Start it right away?",
+	AskDeleteTunnel:     "Delete rule %s?",
+	TunnelStarted:       "✓ Tunnel is up",
+	TunnelStopped:       "✓ Tunnel stopped",
+	TunnelExists:        "That rule already exists",
+	TunnelsStoppedFmt:   "Tunnels stopped: %d",
+	ErrTunnelPortBusy:   "Local port %d is already taken by another tunnel",
+	ErrTunnelHost:       "Need a destination host without spaces or colons",
+	ErrTunnelKind:       "Unknown forwarding type",
+	ErrTunnelStart:      "Tunnel failed to start: %s",
 
 	ExportHeader: "# Generated by unissh — do not edit manually",
 	ExportedTo:   "✓ Exported to %s",
@@ -636,30 +881,16 @@ var trEN = L{
 	AskDefaultUser:    "Default user:",
 	AskSSHKeyPath:     "SSH key path:",
 	AskTimeout:        "Timeout (sec):",
-	TitleTools:        "Tools:",
-	ToolMulti:         "▶️  Run command on multiple servers",
+	ToolMulti:         "▶️ Run command on multiple servers",
 	ToolExport:        "📤 Export to ~/.ssh/config (ssh <name>)",
 	ToolPubkey:        "🔑 Show/copy public key",
-	ToolSettings:      "⚙️  Settings",
+	ToolSettings:      "⚙️ Settings",
 	AskLanguage:       "Interface language:",
-	StepsSaved:        "✓ Default steps saved.",
 
-	EmptyTitle: "No servers yet.",
-	EmptyBody: "Add your first one — unissh will update it, create a sudo user\n" +
-		"with a generated password, install a key and enable protection.",
-	MainPrompt:     "Pick a server (Enter — connect) or an action:",
-	ItemAdd:        "➕ Add server",
-	ItemManage:     "🛠  Manage servers",
-	ItemTools:      "🧰 Tools",
-	ItemExit:       "⏻  Exit",
-	AskWhichServer: "Which server?",
-	Goodbye:        "See you! 👋",
-	ProbeSpinner:   "Checking server availability…",
+	ItemAdd:  "➕ Add server",
+	ItemExit: "⏻  Exit",
+	Goodbye:  "See you! 👋",
 
-	SectionServers:   "SERVERS",
-	SectionActions:   "ACTIONS",
-	TuiHint:          "↑↓/click — select · Enter — connect · m — manage · q — quit",
-	TuiHintEmpty:     "↑↓/click — select · Enter — choose · q — quit",
 	TuiHintSelect:    "↑↓/click — select · Enter — choose · Esc — back",
 	TuiHintInput:     "Enter — confirm · Esc — cancel",
 	TuiHintMulti:     "↑↓ — move · space/click — toggle · Enter — done · Esc — cancel",
@@ -687,40 +918,74 @@ var trEN = L{
 	NoSnippetsYet:    "No snippets yet — save them when running a command.",
 	SnippetDeleted:   "✓ Snippet deleted.",
 	AskDeleteSnippet: "Delete snippet \"%s\"?",
-	NoLastConnected:  "never connected",
-	LastConnFmt:      "connected %s ago",
 	RelNow:           "now",
 	RelMin:           "%dm",
 	RelHour:          "%dh",
 	RelDay:           "%dd",
 
-	FooterServer:        "enter/c connect · i info · m menu · e edit · d delete · / search · ? all keys",
-	FooterAction:        "enter select · s sort · / search · ? all keys · q quit",
-	FilterPrompt:        "🔍 ",
-	FilterNoMatch:       "no servers match filter",
-	SortByName:          "sort: by name",
-	SortByPing:          "sort: by ping",
-	SortByOnline:        "sort: by availability",
-	ConfirmConnectTitle: "Connect to server %s?",
-	ConnectBtn:          "❯ Connect",
-	CancelBtn:           "✗ Cancel",
-	SetConfirmConnect:   "Confirm before connecting: ",
-	AskConfirmConnect:   "Ask for confirmation before connecting?",
-	HelpTitle:           "Keybindings",
-	HelpClose:           "any key — close",
-	HelpNavigate:        "navigate",
-	HelpConnect:         "connect",
-	HelpInfo:            "server info",
-	HelpBootstrap:       "initial setup",
-	HelpManage:          "server management menu",
-	HelpEdit:            "edit",
-	HelpReboot:          "reboot",
-	HelpDelete:          "delete",
-	HelpFavorite:        "favorite (★)",
-	HelpSort:            "change sort",
-	HelpFilter:          "search/filter",
-	HelpHelp:            "this help",
-	HelpQuit:            "quit",
+	PanelServers:     "SERVERS",
+	PanelMenu:        "MENU",
+	PanelActions:     "ACTIONS",
+	PanelStats:       "STATS",
+	PanelDesc:        "DESCRIPTION",
+	PanelHint:        "Tab — panel · Enter/→ — actions · c — connect · / — search · n/m/r/d — folders · ? — help · q — quit",
+	StatsLoading:     "loading…",
+	StatsError:       "no data",
+	StatsOffline:     "server unreachable",
+	TermTooSmall:     "Terminal window is too small. Minimum is %d×%d, current %d×%d — please enlarge it.",
+	NoServersHint:    "No servers — add your first one from the menu on the left.",
+	MenuAddDesc:      "Add a new VPS: manually or with automatic first-time setup (bootstrap) — system update, sudo user, key, firewall, fail2ban.",
+	MenuMultiDesc:    "Run one command on several servers at once (in parallel).",
+	MenuImportDesc:   "Import servers from your ~/.ssh/config (Host blocks) — bring your whole fleet in quickly.",
+	MenuExportDesc:   "Export servers to ~/.ssh/config so `ssh <name>` works from any terminal.",
+	MenuBackupsDesc:  "Restore config from an automatic snapshot (taken before every change).",
+	MenuSnippetsDesc: "Saved commands for quick execution on servers; delete unneeded ones here.",
+	MenuPubkeyDesc:   "Show and copy the unissh public SSH key to add to your servers.",
+	MenuSettingsDesc: "Language, theme, connect mode, confirmation, default bootstrap steps and more.",
+	MenuExitDesc:     "Quit unissh.",
+
+	FilterPrompt: "🔍 ",
+	SortByName:   "sort: by name",
+	SortByPing:   "sort: by ping",
+	SortByOnline: "sort: by availability",
+	HelpTitle:    "Keybindings",
+	HelpClose:    "any key — close",
+	HelpNavigate: "navigate",
+	HelpConnect:  "connect",
+	HelpTunnels:  "port forwarding",
+	HelpSelect:   "mark server (or group)",
+	HelpFavorite: "favorite (★)",
+	HelpSort:     "change sort",
+	HelpFilter:   "search/filter",
+	HelpHelp:     "this help",
+	HelpQuit:     "quit",
+
+	FolderRoot:        "No folder",
+	PanelFolder:       "FOLDER",
+	FolderServersFmt:  "Servers:",
+	FolderHint:        "enter/←→ — collapse/expand · n — new · r — rename · d — delete · shift+↑↓ — reorder",
+	FilterHint:        "type to search · Enter — apply · Esc — reset",
+	MoveHint:          "moving: ↑↓ — pick folder · Enter — save · Esc — cancel",
+	HelpPanels:        "switch panel (servers/menu)",
+	HelpJump:          "jump to start / end of list",
+	HelpOpenActions:   "open server actions / expand folder",
+	HelpBack:          "back / collapse folder",
+	HelpFolderNew:     "create folder",
+	HelpFolderMove:    "grab a server and walk it across folders (Enter — save)",
+	HelpFolderDel:     "delete folder (servers go to root)",
+	AskFolderName:     "Folder name:",
+	FolderNewTitle:    "New folder",
+	FolderRenameTitle: "Rename folder",
+	HelpFolderRename:  "rename folder",
+	HelpFolderOrder:   "reorder folders",
+	FolderDeleteBody:  "Its servers move back to \"No folder\".",
+	PromptHint:        "Enter — confirm · Esc — cancel",
+	ConfirmHint:       "Enter/y — delete · Esc/n — cancel",
+	ErrFolderExists:   "a folder with this name already exists",
+	FolderNewOption:   "＋ New folder…",
+	AskDeleteFolder:   "Delete folder \"%s\"?",
+	FldFolder:         "Folder: ",
+	AskFolderChoose:   "Server folder:",
 
 	UsageTagline: "Terminal VPS manager: pick a server and you're in.",
 	UsageTitle:   "Usage:",
@@ -739,21 +1004,20 @@ var trEN = L{
 	ErrTimeoutRange: "enter a number greater than 0",
 	RootAuthHint:    "After hardening, root password login is disabled — use the SSH key.",
 
-	LblPublicIP:    "Public IP (external APIs)",
-	DetectingPubIP: "Detecting public addresses…",
-	PubIPUnique:    "Unique: %s",
-	PubIPNone:      "could not detect public addresses",
-	SetShowPubIP:   "Public IP on connect: ",
-	AskShowPubIP:   "Show public IP on connect?",
-
-	LblIPs:            "IP addresses",
-	GatheringOnAdd:    "Gathering server information…",
-	SetConnectMode:    "Open SSH: ",
-	AskConnectMode:    "How to open the SSH connection?",
-	ConnectModeWindow: "in a new terminal window",
-	ConnectModeInline: "in the same window",
-	OpenedNewWindow:   "↗ Connection opened in a new terminal window",
-	ErrOpenWindow:     "could not open a new window (%v) — connecting here",
+	LblIPs:             "IP addresses",
+	SetConnectMode:     "Open SSH: ",
+	DescLanguage:       "Interface language: Russian or English.",
+	DescTheme:          "Color theme. Applies instantly to every screen.",
+	DescConnectMode:    "Open SSH in a new terminal window or inline in the current one.",
+	DescDefaultUser:    "Username pre-filled by default when adding a new server.",
+	DescSSHKey:         "Path to the private SSH key used to log in and to install onto servers.",
+	DescTimeout:        "How many seconds to wait for a status check (ping). Higher is more reliable on slow links.",
+	DescBootstrapSteps: "Which first-time setup (bootstrap) steps are checked by default for a new server.",
+	AskConnectMode:     "How to open the SSH connection?",
+	ConnectModeWindow:  "in a new terminal window",
+	ConnectModeInline:  "in the same window",
+	OpenedNewWindow:    "↗ Connection opened in a new terminal window",
+	ErrOpenWindow:      "could not open a new window (%v) — connecting here",
 }
 
 // T — активный язык. По умолчанию русский; переключается из настроек.

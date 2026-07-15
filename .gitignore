@@ -1,6 +1,8 @@
 # Собранный бинарник
 /unissh
 /unissh_race
+
+# Временные expect-скрипты с паролем (создаются в TMPDIR, но на всякий случай)
 unissh-*.exp
 
 # ОС и редакторы
@@ -8,6 +10,7 @@ unissh-*.exp
 .idea/
 .vscode/
 *.swp
+*~
 
 # GoReleaser
 /dist/
@@ -16,8 +19,22 @@ unissh-*.exp
 go.work
 go.work.sum
 
-# локальный контекст для ассистентов
-CLAUDE.md
+# Артефакты тестов, покрытия и профилирования
+coverage.out
+coverage.html
+*.test
+*.prof
 
-# git
-/.github
+# Локальные настройки AI-ассистентов
+.claude/
+
+# ЛИЧНЫЕ ДАННЫЕ. Живут в ~/.config/unissh и ~/.ssh, но если кто-то скопирует их
+# в каталог проекта для отладки — они не должны уехать в публичный репозиторий.
+servers.json
+servers.json.broken
+secrets.json
+known_hosts
+history.jsonl*
+backups/
+unissh_ed25519*
+*.pem

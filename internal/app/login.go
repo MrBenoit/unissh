@@ -23,18 +23,35 @@ func tclQuote(s string) string {
 	return `"` + r.Replace(s) + `"`
 }
 
-// spawnLine собирает `spawn ssh "arg" "arg" …` из аргументов ssh.
-func spawnLine(s *Server) string {
+// spawnLine собирает `spawn <prog> "arg" "arg" …` — аргументы экранируются для Tcl.
+func spawnLine(prog string, args []string) string {
 	var b strings.Builder
-	b.WriteString("spawn ssh")
-	for _, a := range sshArgs(s) {
+	b.WriteString("spawn " + prog)
+	for _, a := range args {
 		b.WriteString(" ")
 		b.WriteString(tclQuote(a))
 	}
 	return b.String()
 }
 
-// expectScript формирует Tcl-скрипт. Если embedPassword=="" — пароль читается из
+// expectWait — общий хвост: дожидаемся программы и пробрасываем её код выхода.
+const expectWait = "catch {wait} result\nexit [lindex $result 3]\n"
+
+// expectPasswordBlock — блок ожидания приглашения. Пароль отправляется только по
+// совпадению «password:»/«passphrase»: при неверном пароле повторное приглашение
+// уходит пользователю, и мы не зацикливаемся. onEOF — что делать, если программа
+// умерла, не спросив пароля.
+func expectPasswordBlock(onEOF string) string {
+	return "expect {\n" +
+		"  -nocase \"password:\" { send -- \"$pw\\r\" }\n" +
+		"  -nocase \"passphrase\" { send -- \"$pw\\r\" }\n" +
+		"  timeout {}\n" + // вход по ключу: приглашения не будет
+		"  eof { " + onEOF + " }\n" +
+		"}\n"
+}
+
+// expectScript формирует Tcl-скрипт интерактивной сессии (interact отдаёт
+// терминал пользователю). Если embedPassword=="" — пароль читается из
 // $env(UNISSH_SSHPASS); иначе встраивается литералом, а скрипт удаляет сам себя.
 func expectScript(s *Server, embedPassword string, selfDelete bool) string {
 	var b strings.Builder
@@ -47,25 +64,38 @@ func expectScript(s *Server, embedPassword string, selfDelete bool) string {
 	if selfDelete {
 		b.WriteString("catch {file delete [info script]}\n")
 	}
-	b.WriteString(spawnLine(s) + "\n")
-	b.WriteString("expect {\n")
-	b.WriteString("  -nocase \"password:\" { send -- \"$pw\\r\" }\n")
-	b.WriteString("  -nocase \"passphrase\" { send -- \"$pw\\r\" }\n")
-	b.WriteString("  timeout {}\n")
-	b.WriteString("  eof { exit }\n")
-	b.WriteString("}\n")
+	b.WriteString(spawnLine("ssh", sshArgs(s)) + "\n")
+	b.WriteString(expectPasswordBlock("exit"))
 	b.WriteString("interact\n")
-	b.WriteString("catch {wait} result\n")
-	b.WriteString("exit [lindex $result 3]\n")
+	b.WriteString(expectWait)
 	return b.String()
 }
 
+// expectAutoScript собирает Tcl-скрипт для НЕинтерактивной программы (ssh -N,
+// scp): пароль берётся из $UNISSH_SSHPASS, вводится при первом приглашении, а
+// дальше скрипт просто ждёт завершения программы и отдаёт её код выхода.
+// Пароль не пишется на диск и не попадает в argv.
+//
+// Отличие от expectScript: там в конце interact — сессию отдают пользователю.
+// Здесь отдавать нечего, поэтому expect eof без таймаута (передача файла может
+// идти часами, а `ssh -N` не завершается вовсе).
+func expectAutoScript(prog string, args []string) string {
+	var b strings.Builder
+	b.WriteString("set timeout 30\n")
+	b.WriteString("set pw $env(UNISSH_SSHPASS)\n")
+	b.WriteString(spawnLine(prog, args) + "\n")
+	b.WriteString(expectPasswordBlock("exit 1")) // умер до приглашения — это сбой
+	b.WriteString("set timeout -1\n")
+	b.WriteString("expect eof\n")
+	b.WriteString(expectWait)
+	return b.String()
+}
 func writeTempScript(content string) (string, error) {
 	f, err := os.CreateTemp("", "unissh-*.exp")
 	if err != nil {
 		return "", err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	if err := f.Chmod(0o600); err != nil {
 		return "", err
 	}
@@ -83,7 +113,7 @@ func connectInlineAuto(s *Server, password string) (int, error) {
 	if err != nil {
 		return -1, err
 	}
-	defer os.Remove(path)
+	defer func() { _ = os.Remove(path) }()
 
 	cmd := exec.Command("expect", "-f", path)
 	cmd.Stdin = os.Stdin
@@ -105,7 +135,7 @@ func connectInlineAuto(s *Server, password string) (int, error) {
 func sshWindowCommand(s *Server, password string) (cmd string, cleanup func()) {
 	if password != "" && hasExpect() {
 		if path, err := writeTempScript(expectScript(s, password, true)); err == nil {
-			return "expect -f " + shellQuote(path), func() { os.Remove(path) }
+			return "expect -f " + shellQuote(path), func() { _ = os.Remove(path) }
 		}
 	}
 	return sshCommandString(s), func() {}

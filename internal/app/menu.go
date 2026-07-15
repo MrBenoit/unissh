@@ -1,63 +1,85 @@
 package app
 
-// Главное меню: TUI (tui.go) выбирает пункт → здесь выполняется действие.
+// Главное меню: панельный TUI (tui2.go) выбирает пункт → здесь выполняется действие.
+// Диалоги (ввод, выбор) запускаются именно тут: второй tea.Program поверх
+// работающего запустить нельзя, поэтому панель выходит и возвращает menuItem.
 
-import (
-	"fmt"
-
-	"github.com/charmbracelet/huh"
-)
+import "fmt"
 
 func mainMenu(st *Store) {
+	// Туннели — фоновые процессы, привязанные к жизни unissh: без этого они
+	// пережили бы приложение и остались висеть без единого способа их найти.
+	defer func() {
+		if n := tunnels.StopAll(); n > 0 {
+			fmt.Println(styGrey.Render(fmt.Sprintf(T.TunnelsStoppedFmt, n)))
+		}
+	}()
 	for {
-		res := runMainTUI(st)
+		res := runPanelsTUI(st)
 		if res == nil { // выход
 			fmt.Println()
 			fmt.Println(styViolet.Render(T.Goodbye))
 			return
 		}
-		switch res.kind {
-		case kindServer:
-			// поп-ап подтверждения (защита от случайного клика; можно отключить в настройках)
-			if !confirmConnectEnabled(gSettings) || confirmConnect(res.server) {
-				actionConnect(res.server)
-			}
-		case kindAction:
-			switch res.action {
-			case "add":
-				addServerFlow(st)
-			case "manage":
-				manageServerPicker(st)
-			case "manage-direct":
-				serverManageMenu(st, res.server)
-			case "tools":
-				toolsMenu(st)
-			case "info":
-				actionInfo(res.server)
-			case "edit":
-				actionEdit(st, res.server)
-			case "delete":
-				actionDelete(st, res.server)
-			case "reboot":
-				actionReboot(res.server)
-			case "bootstrap":
-				rebootstrapFlow(st, res.server)
-			}
-		}
+		dispatchMenu(st, res)
 	}
 }
 
-// manageServerPicker — выбор сервера для управления (пункт «Управление серверами»).
-func manageServerPicker(st *Store) {
-	var opts []huh.Option[string]
-	for _, s := range st.Servers {
-		opts = append(opts, huh.NewOption(fmt.Sprintf("%s  (%s)", s.Name, s.Addr()), s.ID))
-	}
-	opts = append(opts, huh.NewOption(T.Back, "back"))
-	target, ok := askSelect(T.AskWhichServer, opts)
-	if ok && target != "back" {
-		if s := st.ByID(target); s != nil {
-			serverManageMenu(st, s)
-		}
+// dispatchMenu выполняет действие, выбранное на главном экране.
+func dispatchMenu(st *Store, res *menuItem) {
+	switch res.action {
+	case "add":
+		addServerFlow(st)
+	case "health":
+		actionHealth(st)
+	case "multi":
+		actionRunMulti(st)
+	case "import":
+		importFromSSHConfig(st)
+	case "export":
+		exportSSHConfig(st, true)
+	case "backups":
+		restoreBackupMenu(st)
+	case "snippets":
+		manageSnippets(st)
+	case "journal":
+		actionJournal()
+	case "pubkey":
+		showPubkey(st)
+	case "settings":
+		settingsMenu(st)
+	case "connect":
+		// подключение — осознанный выбор кнопки/клавиши «c», попап не нужен
+		actionConnect(st, res.server)
+	case "info":
+		actionInfo(res.server)
+	case "run":
+		actionRunSingle(st, res.server)
+	case "password":
+		actionShowPasswords(res.server)
+	case "install_key":
+		actionInstallKey(st, res.server)
+	case "copy":
+		actionCopySSHCmd(res.server)
+	case "forget":
+		actionForgetHostKey(res.server)
+	case "reboot":
+		actionReboot(res.server)
+	case "edit":
+		actionEdit(st, res.server)
+	case "delete":
+		actionDelete(st, res.server)
+	case "bootstrap":
+		rebootstrapFlow(st, res.server)
+	case "tunnels":
+		actionTunnels(st, res.server)
+	case "transfer":
+		actionTransfer(res.server)
+	case "batch_run":
+		batchRun(st, res.servers)
+	case "batch_move":
+		batchMove(st, res.servers)
+	case "batch_delete":
+		batchDelete(st, res.servers)
 	}
 }

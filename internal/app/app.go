@@ -58,7 +58,7 @@ func quickConnect(st *Store, query string) {
 			styDim.Render(fmt.Sprintf(T.HaveList, list)))
 		os.Exit(1)
 	}
-	actionConnect(s)
+	actionConnect(st, s)
 }
 
 // Run — точка входа приложения (вызывается из корневого main.go). ver — версия
@@ -70,8 +70,15 @@ func Run(ver string) {
 	st := loadStore()
 	setLang(st.Settings.Language)
 	applyTheme(st.Settings.Theme)
-	gSettings = &st.Settings
-	gStore = st
+	if st.readOnly {
+		// loadStore уже напечатал ошибку разбора и путь к .broken. Показываем,
+		// что запись запрещена, и ждём Enter — иначе alt-screen сотрёт сообщение.
+		fmt.Println(styRed.Render(T.ErrConfigReadOnly))
+		fmt.Println(styYellow.Render(T.ConfigBrokenHint))
+		if isTTY() {
+			pressEnter()
+		}
+	}
 	arg := ""
 	if len(os.Args) > 1 {
 		arg = os.Args[1]

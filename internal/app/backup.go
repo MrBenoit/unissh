@@ -9,8 +9,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-
-	"github.com/charmbracelet/huh"
 )
 
 // restoreBackupMenu показывает список снапшотов и восстанавливает выбранный.
@@ -24,17 +22,16 @@ func restoreBackupMenu(st *Store) {
 		}
 	}
 	if len(files) == 0 {
-		fmt.Println(styYellow.Render(T.BackupNothing))
-		pressEnter()
+		showPage(T.BackupTitle, []string{styYellow.Render(T.BackupNothing)})
 		return
 	}
 	sort.Sort(sort.Reverse(sort.StringSlice(files))) // новые сверху
 
-	var opts []huh.Option[string]
+	var opts []selOption[string]
 	for _, name := range files {
-		opts = append(opts, huh.NewOption(backupLabel(dir, name), name))
+		opts = append(opts, opt(backupLabel(dir, name), name))
 	}
-	opts = append(opts, huh.NewOption(T.Back, ""))
+	opts = append(opts, opt(T.Back, ""))
 
 	pick, ok := askSelect(T.BackupTitle, opts)
 	if !ok || pick == "" {
@@ -46,26 +43,24 @@ func restoreBackupMenu(st *Store) {
 	}
 	data, err := os.ReadFile(filepath.Join(dir, pick))
 	if err != nil {
-		fmt.Println(styRed.Render(err.Error()))
-		pressEnter()
+		showError(T.BackupTitle, err)
 		return
 	}
 	if err := os.WriteFile(st.path, data, 0o600); err != nil {
-		fmt.Println(styRed.Render(err.Error()))
-		pressEnter()
+		showError(T.BackupTitle, err)
 		return
 	}
 	// перечитываем конфиг в память — иначе восстановление не видно и затрётся при
-	// следующем сохранении (gStore == st держится по указателю)
+	// следующем сохранении (стор держится по указателю)
 	var cfg Config
 	if json.Unmarshal(data, &cfg) == nil {
 		st.Config = cfg
+		st.readOnly = false // конфиг снова валиден — запись разрешена
 		setLang(st.Settings.Language)
 		applyTheme(st.Settings.Theme)
 	}
 	maybeRefreshSSHConfig(st)
-	fmt.Println(styGreen.Render(T.BackupRestored))
-	pressEnter()
+	showToast(styGreen.Render(T.BackupRestored))
 }
 
 // backupLabel формирует читаемую подпись снапшота: сколько серверов и когда.

@@ -9,22 +9,11 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-
-	"github.com/charmbracelet/huh"
 )
 
 func sshConfigPath() string {
 	home, _ := os.UserHomeDir()
 	return filepath.Join(home, ".ssh", "unissh_config")
-}
-
-// sshConfValue экранирует значение для ssh_config: если есть пробелы/кавычки —
-// оборачиваем в двойные кавычки (иначе один пробел в пути ключа ломает весь ssh).
-func sshConfValue(v string) string {
-	if v != "" && !strings.ContainsAny(v, " \t\"") {
-		return v
-	}
-	return `"` + strings.ReplaceAll(v, `"`, `\"`) + `"`
 }
 
 // writeAtomic пишет файл через временный + rename (перезапись не оставляет
@@ -63,7 +52,7 @@ func writeExportFile(st *Store) error {
 // через Include в начале ~/.ssh/config.
 func exportSSHConfig(st *Store, announce bool) {
 	if err := writeExportFile(st); err != nil {
-		fmt.Println(styRed.Render(err.Error()))
+		showError(T.ToolExport, err)
 		return
 	}
 
@@ -81,14 +70,16 @@ func exportSSHConfig(st *Store, announce bool) {
 		}
 		// Include должен стоять до первого Host-блока — вставляем в начало (атомарно)
 		if err := writeAtomic(mainCfg, []byte(includeLine+"\n"+existing), 0o600); err != nil {
-			fmt.Println(styRed.Render(err.Error()))
+			showError(T.ToolExport, err)
 			return
 		}
 	}
 	if announce {
-		fmt.Println(styGreen.Render(fmt.Sprintf(T.ExportedTo, sshConfigPath())))
-		fmt.Println(styDim.Render(T.ExportHint))
-		pressEnter()
+		showPage(T.ToolExport, []string{
+			styGreen.Render(fmt.Sprintf(T.ExportedTo, sshConfigPath())),
+			"",
+			styDim.Render(T.ExportHint),
+		})
 	}
 }
 
@@ -106,16 +97,14 @@ func maybeRefreshSSHConfig(st *Store) {
 func showPubkey(st *Store) {
 	pub, err := ensureKey(st.Settings.SSHKey, true)
 	if err != nil {
-		fmt.Println(styRed.Render(err.Error()))
-		pressEnter()
+		showError(T.TitlePubkey, err)
 		return
 	}
-	fmt.Println(panelCyan.Render(styCyan.Bold(true).Render(T.TitlePubkey) + "\n\n" +
-		styCyan.Render(pub)))
-	if pbcopy(pub) {
-		fmt.Println(styDim.Render(T.PubkeyCopied))
+	lines := wrapText(styCyan.Render(pub), 76)
+	if clipCopy(pub) {
+		lines = append(lines, "", styDim.Render(T.PubkeyCopied))
 	}
-	pressEnter()
+	showPage(T.TitlePubkey, lines)
 }
 
 func settingsMenu(st *Store) {
@@ -130,47 +119,41 @@ func settingsMenu(st *Store) {
 		if themeLabel == "" {
 			themeLabel = "blue"
 		}
-		confirmLabel := T.No
-		if confirmConnectEnabled(&st.Settings) {
-			confirmLabel = T.Yes
-		}
-		field, ok := askSelect(T.TitleSettings, []huh.Option[string]{
-			huh.NewOption(T.SetLanguage+langName(st.Settings.Language), "language"),
-			huh.NewOption(T.SetTheme+themeLabel, "theme"),
-			huh.NewOption(T.SetConnectMode+connLabel, "connect_mode"),
-			huh.NewOption(T.SetConfirmConnect+confirmLabel, "confirm_connect"),
-			huh.NewOption(T.SetDefaultUser+st.Settings.DefaultUser, "default_user"),
-			huh.NewOption(T.SetSSHKey+st.Settings.SSHKey, "ssh_key"),
-			huh.NewOption(fmt.Sprintf(T.SetTimeout, st.Settings.StatusTimeout), "status_timeout"),
-			huh.NewOption(stepsLabel, "bootstrap_steps"),
-			huh.NewOption(T.Back, "back"),
+		field, ok := askSelectDesc(T.TitleSettings, []selOption[string]{
+			opt(T.SetLanguage+langName(st.Settings.Language), "language"),
+			opt(T.SetTheme+themeLabel, "theme"),
+			opt(T.SetConnectMode+connLabel, "connect_mode"),
+			opt(T.SetDefaultUser+st.Settings.DefaultUser, "default_user"),
+			opt(T.SetSSHKey+st.Settings.SSHKey, "ssh_key"),
+			opt(fmt.Sprintf(T.SetTimeout, st.Settings.StatusTimeout), "status_timeout"),
+			opt(stepsLabel, "bootstrap_steps"),
+			opt(T.Back, "back"),
+		}, []string{
+			T.DescLanguage, T.DescTheme, T.DescConnectMode,
+			T.DescDefaultUser, T.DescSSHKey, T.DescTimeout,
+			T.DescBootstrapSteps, "",
 		})
 		if !ok || field == "back" {
 			return
 		}
 		switch field {
 		case "language":
-			lang, ok := askSelect(T.AskLanguage, []huh.Option[string]{
-				huh.NewOption("Русский", "ru"),
-				huh.NewOption("English", "en"),
+			lang, ok := askSelect(T.AskLanguage, []selOption[string]{
+				opt("Русский", "ru"),
+				opt("English", "en"),
 			})
 			if ok {
 				st.Settings.Language = lang
 				setLang(lang)
 			}
 		case "theme":
-			var topts []huh.Option[string]
+			var topts []selOption[string]
 			for _, name := range themeNames {
-				topts = append(topts, huh.NewOption(name, name))
+				topts = append(topts, opt(name, name))
 			}
 			if theme, ok := askSelect(T.AskTheme, topts); ok {
 				st.Settings.Theme = theme
 				applyTheme(theme) // мгновенно применяем
-			}
-		case "confirm_connect":
-			cur := confirmConnectEnabled(&st.Settings)
-			if v, ok := askConfirm(T.AskConfirmConnect, cur); ok {
-				st.Settings.ConfirmConnect = &v
 			}
 		case "default_user":
 			if v, ok := askInput(T.AskDefaultUser, st.Settings.DefaultUser,
@@ -197,9 +180,9 @@ func settingsMenu(st *Store) {
 				st.Settings.StatusTimeout, _ = strconv.ParseFloat(v, 64)
 			}
 		case "connect_mode":
-			mode, ok := askSelect(T.AskConnectMode, []huh.Option[string]{
-				huh.NewOption(T.ConnectModeWindow, "window"),
-				huh.NewOption(T.ConnectModeInline, "inline"),
+			mode, ok := askSelect(T.AskConnectMode, []selOption[string]{
+				opt(T.ConnectModeWindow, "window"),
+				opt(T.ConnectModeInline, "inline"),
 			})
 			if ok {
 				if mode == "inline" {
@@ -219,40 +202,5 @@ func settingsMenu(st *Store) {
 			}
 		}
 		st.MustSave()
-	}
-}
-
-// toolsMenu — меню «Инструменты»: команды, импорт/экспорт, ключ, бэкапы, настройки.
-func toolsMenu(st *Store) {
-	for {
-		act, ok := askSelect(T.TitleTools, []huh.Option[string]{
-			huh.NewOption(T.ToolMulti, "multi"),
-			huh.NewOption(T.ToolImport, "import"),
-			huh.NewOption(T.ToolExport, "export"),
-			huh.NewOption(T.ToolBackups, "backups"),
-			huh.NewOption(T.ToolSnippets, "snippets"),
-			huh.NewOption(T.ToolPubkey, "pubkey"),
-			huh.NewOption(T.ToolSettings, "settings"),
-			huh.NewOption(T.Back, "back"),
-		})
-		if !ok || act == "back" {
-			return
-		}
-		switch act {
-		case "multi":
-			actionRunMulti(st)
-		case "import":
-			importFromSSHConfig(st)
-		case "export":
-			exportSSHConfig(st, true)
-		case "backups":
-			restoreBackupMenu(st)
-		case "snippets":
-			manageSnippets(st)
-		case "pubkey":
-			showPubkey(st)
-		case "settings":
-			settingsMenu(st)
-		}
 	}
 }

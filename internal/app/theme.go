@@ -23,6 +23,7 @@ var (
 	cRed    = "#f7768e"
 	cGrey   = "#9aa5ce"
 	cDim    = "#4b5573"
+	cText   = "#c0caf5" // основной цвет текста темы (для подписей селекторов)
 )
 
 var (
@@ -34,39 +35,27 @@ var (
 	styPink   = lipgloss.NewStyle().Foreground(lipgloss.Color(cPink))
 	styGrey   = lipgloss.NewStyle().Foreground(lipgloss.Color(cGrey))
 	styDim    = lipgloss.NewStyle().Foreground(lipgloss.Color(cDim))
+	styText   = lipgloss.NewStyle().Foreground(lipgloss.Color(cText))
 	styBold   = lipgloss.NewStyle().Bold(true)
 	styTitle  = lipgloss.NewStyle().Foreground(lipgloss.Color(cViolet)).Bold(true)
 
 	panelViolet = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).
 			BorderForeground(lipgloss.Color(cViolet)).Padding(0, 1)
-	panelDim = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color(cDim)).Padding(0, 1)
 	panelGreen = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).
 			BorderForeground(lipgloss.Color(cGreen)).Padding(0, 1)
 	panelRed = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).
 			BorderForeground(lipgloss.Color(cRed)).Padding(0, 1)
-	panelYellow = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color(cYellow)).Padding(0, 1)
-	panelCyan = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color(cCyan)).Padding(0, 1)
 )
-
-const bannerArt = ` ██╗   ██╗███╗   ██╗██╗███████╗███████╗██╗  ██╗
- ██║   ██║████╗  ██║██║██╔════╝██╔════╝██║  ██║
- ██║   ██║██╔██╗ ██║██║███████╗███████╗███████║
- ██║   ██║██║╚██╗██║██║╚════██║╚════██║██╔══██║
- ╚██████╔╝██║ ╚████║██║███████║███████║██║  ██║
-  ╚═════╝ ╚═╝  ╚═══╝╚═╝╚══════╝╚══════╝╚═╝  ╚═╝`
 
 var gradientStops = []string{cCyan, cViolet, cPink}
 
-// themePresets — цвета: [cyan, violet, pink(акцент), green, yellow, red, grey, dim].
-var themePresets = map[string][8]string{
-	"blue":    {"#56b6ff", "#7aa2f7", "#6ea8fe", "#34d399", "#e0af68", "#f7768e", "#9aa5ce", "#4b5573"},
-	"dark":    {"#22d3ee", "#a78bfa", "#c586e0", "#34d399", "#fbbf24", "#f87171", "#8b93a7", "#5c6370"},
-	"light":   {"#0891b2", "#4f46e5", "#2563eb", "#059669", "#b45309", "#dc2626", "#4b5563", "#9ca3af"},
-	"dracula": {"#8be9fd", "#bd93f9", "#bd93f9", "#50fa7b", "#f1fa8c", "#ff5555", "#a4a7b0", "#6272a4"},
-	"gruvbox": {"#83a598", "#d3869b", "#fabd2f", "#b8bb26", "#fabd2f", "#fb4934", "#a89984", "#665c54"},
+// themePresets — цвета: [cyan, violet, pink(акцент), green, yellow, red, grey, dim, text].
+var themePresets = map[string][9]string{
+	"blue":    {"#56b6ff", "#7aa2f7", "#6ea8fe", "#34d399", "#e0af68", "#f7768e", "#9aa5ce", "#4b5573", "#c0caf5"},
+	"dark":    {"#22d3ee", "#a78bfa", "#c586e0", "#34d399", "#fbbf24", "#f87171", "#8b93a7", "#5c6370", "#e5e7eb"},
+	"light":   {"#0891b2", "#4f46e5", "#2563eb", "#059669", "#b45309", "#dc2626", "#4b5563", "#9ca3af", "#1f2937"},
+	"dracula": {"#8be9fd", "#bd93f9", "#bd93f9", "#50fa7b", "#f1fa8c", "#ff5555", "#a4a7b0", "#6272a4", "#f8f8f2"},
+	"gruvbox": {"#83a598", "#d3869b", "#fabd2f", "#b8bb26", "#fabd2f", "#fb4934", "#a89984", "#665c54", "#ebdbb2"},
 }
 
 // themeNames — порядок тем для выбора в настройках (синяя — по умолчанию).
@@ -81,7 +70,7 @@ func applyTheme(name string) {
 	}
 	cCyan, cViolet, cPink = p[0], p[1], p[2]
 	cGreen, cYellow, cRed = p[3], p[4], p[5]
-	cGrey, cDim = p[6], p[7]
+	cGrey, cDim, cText = p[6], p[7], p[8]
 	rebuildStyles()
 }
 
@@ -95,25 +84,11 @@ func rebuildStyles() {
 	styGreen, styYellow, styRed = fg(cGreen), fg(cYellow), fg(cRed)
 	styCyan, styViolet, styPink = fg(cCyan), fg(cViolet), fg(cPink)
 	styGrey, styDim = fg(cGrey), fg(cDim)
+	styText = fg(cText)
 	styBold = lipgloss.NewStyle().Bold(true)
 	styTitle = fg(cViolet).Bold(true)
-	panelViolet, panelDim, panelGreen = panel(cViolet), panel(cDim), panel(cGreen)
-	panelRed, panelYellow, panelCyan = panel(cRed), panel(cYellow), panel(cCyan)
-	sectionStyle = fg(cViolet).Bold(true)
+	panelViolet, panelGreen, panelRed = panel(cViolet), panel(cGreen), panel(cRed)
 	gradientStops = []string{cCyan, cViolet, cPink}
-}
-
-func hexToRGB(h string) (int, int, int) {
-	var r, g, b int
-	fmt.Sscanf(strings.TrimPrefix(h, "#"), "%02x%02x%02x", &r, &g, &b)
-	return r, g, b
-}
-
-func blendHex(a, b string, f float64) string {
-	ar, ag, ab := hexToRGB(a)
-	br, bg, bb := hexToRGB(b)
-	mix := func(x, y int) int { return x + int(float64(y-x)*f) }
-	return fmt.Sprintf("#%02x%02x%02x", mix(ar, br), mix(ag, bg), mix(ab, bb))
 }
 
 // gradientLine раскрашивает строку горизонтальным градиентом по символам.
@@ -160,53 +135,6 @@ func meter(frac float64, width int) string {
 		sty.Render(fmt.Sprintf(" %3.0f%%", frac*100))
 }
 
-func humanBytes(n float64) string {
-	units := T.BytesUnits
-	if len(units) == 0 {
-		units = []string{"B", "KB", "MB", "GB", "TB", "PB"}
-	}
-	i := 0
-	for n >= 1024 && i < len(units)-1 {
-		n /= 1024
-		i++
-	}
-	if i == 0 {
-		return fmt.Sprintf("%.0f %s", n, units[i])
-	}
-	return fmt.Sprintf("%.1f %s", n, units[i])
-}
-
-// sanitizeRemote убирает управляющие символы (в т.ч. ANSI/OSC-последовательности)
-// из вывода удалённого сервера, чтобы он не мог перекрасить/переписать локальный
-// терминал. Сохраняются перевод строки и табуляция.
-func sanitizeRemote(s string) string {
-	var b strings.Builder
-	b.Grow(len(s))
-	runes := []rune(s)
-	for i := 0; i < len(runes); i++ {
-		r := runes[i]
-		if r == 0x1b { // ESC — пропускаем следующую управляющую последовательность
-			i++
-			if i < len(runes) && runes[i] == '[' { // CSI ...
-				i++
-				for i < len(runes) && !(runes[i] >= 0x40 && runes[i] <= 0x7e) {
-					i++
-				}
-			} else if i < len(runes) && runes[i] == ']' { // OSC ... BEL/ST
-				i++
-				for i < len(runes) && runes[i] != 0x07 && runes[i] != 0x1b {
-					i++
-				}
-			}
-			continue
-		}
-		if r == '\n' || r == '\t' || r >= 0x20 {
-			b.WriteRune(r)
-		}
-	}
-	return b.String()
-}
-
 // stepSpinner — строка прогресса шага настройки: крутилка + последняя строка вывода.
 type stepSpinner struct {
 	mu    sync.Mutex
@@ -237,8 +165,8 @@ func (s *stepSpinner) run() {
 			s.mu.Lock()
 			line := s.line
 			s.mu.Unlock()
-			if len(line) > 60 {
-				line = line[:60] + "…"
+			if r := []rune(line); len(r) > 60 { // обрезаем по рунам, не по байтам
+				line = string(r[:60]) + "…"
 			}
 			fmt.Printf("\r\033[K  %s %s  %s",
 				styCyan.Render(spinnerFrames[i%len(spinnerFrames)]),
@@ -250,7 +178,7 @@ func (s *stepSpinner) run() {
 
 func (s *stepSpinner) setLine(line string) {
 	s.mu.Lock()
-	s.line = line
+	s.line = sanitizeRemote(line) // строка приходит из вывода сервера — санитайзим
 	s.mu.Unlock()
 }
 

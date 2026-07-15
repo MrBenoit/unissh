@@ -1,24 +1,37 @@
 package app
 
-// Кликабельное меню-выбор (bubbletea): замена huh.Select. Каждый пункт —
-// отдельная кнопка в рамке (клик по всей кнопке, промахнуться сложно). При
-// нехватке высоты список прокручивается (окно вокруг курсора).
+// Панельное меню-выбор (bubbletea) в едином стиле с главным
+// экраном v2. Пункты — строки в рамке-панели с указателем ❯; если заданы описания,
+// справа показывается панель с описанием выделенного пункта (как в настройках).
+// При нехватке высоты список прокручивается. Клик по строке — выбор.
 
 import (
-	"fmt"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
+
+// selOption — пункт селектора: видимая подпись и возвращаемое значение.
+// Раньше это был huh.Option; от всего huh нам нужны были ровно эти два поля,
+// и ради них тянуть зависимость незачем.
+type selOption[T comparable] struct {
+	label string
+	value T
+}
+
+// opt — конструктор пункта селектора.
+func opt[T comparable](label string, value T) selOption[T] {
+	return selOption[T]{label: label, value: value}
+}
 
 type selectModel struct {
 	title   string
-	header  string // необязательный блок (например таблица сервера)
+	header  string // необязательный блок сверху (например таблица сервера)
 	labels  []string
+	descs   []string // описания пунктов (опционально) → правая панель
 	cursor  int
-	offset  int         // индекс первой видимой кнопки (прокрутка)
-	regions []hitRegion // кликабельные области видимых кнопок
+	offset  int         // индекс первой видимой строки (прокрутка)
+	regions []hitRegion // кликабельные области видимых строк
 	chosen  int         // выбранный индекс, -1 — отмена
 	width   int
 	height  int
@@ -26,18 +39,7 @@ type selectModel struct {
 
 func (m *selectModel) Init() tea.Cmd { return nil }
 
-// btnWidth возвращает ширину кнопки пункта с учётом ширины терминала.
-func btnWidth(termWidth int) int {
-	w := termWidth - 6
-	if w > 68 {
-		w = 68
-	}
-	if w < 20 {
-		w = 20
-	}
-	return w
-}
-
+// move двигает курсор по кругу.
 func (m *selectModel) move(delta int) {
 	n := len(m.labels)
 	if n > 0 {
@@ -59,7 +61,7 @@ func (m *selectModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.cursor = 0
 		case "end", "G":
 			m.cursor = len(m.labels) - 1
-		case "enter", " ":
+		case "enter", " ", "right", "l":
 			m.chosen = m.cursor
 			return m, tea.Quit
 		case "q", "esc", "ctrl+c":
@@ -83,77 +85,47 @@ func (m *selectModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// visibleCount — сколько кнопок (по 3 строки) помещается по высоте.
-func (m *selectModel) visibleCount() int {
-	h := m.height
-	if h <= 0 {
-		h = 40
+// optionRows формирует строки пунктов селектора: радио-кнопка [ ]/[•] + текст.
+func (m *selectModel) optionRows() []string {
+	rows := make([]string, len(m.labels))
+	for i, l := range m.labels {
+		rows[i] = radioLabel(l, i == m.cursor)
 	}
-	reserved := 6 // заголовок, отступы, подсказка, индикаторы прокрутки
-	if m.header != "" {
-		reserved += strings.Count(m.header, "\n") + 2
-	}
-	if avail := h - reserved; avail >= 3 {
-		return avail / 3
-	}
-	return 1
+	return rows
 }
 
-// View рисует заголовок, шапку и пункты-кнопки; попутно заполняет m.regions
-// кликабельными областями видимых кнопок.
+// View рисует форму: (шапка) + панель со списком + (панель описания) + подсказка;
+// попутно заполняет m.regions кликабельными областями видимых строк.
 func (m *selectModel) View() string {
-	var lines []string
-	var regions []hitRegion
-
+	var top []string
 	if m.header != "" {
-		lines = append(lines, strings.Split(m.header, "\n")...)
-		lines = append(lines, "")
+		top = append(top, strings.Split(m.header, "\n")...)
+		top = append(top, "")
 	}
-	if m.title != "" {
-		lines = append(lines, styViolet.Bold(true).Render(m.title), "")
+	hasDesc := len(m.descs) > 0 && m.cursor < len(m.descs)
+	lay := computeFormLayout(m.width, m.height, len(top), hasDesc)
+
+	listBox, rowY := panelBox(m.title, m.optionRows(), lay.panelW, lay.panelH, true, m.cursor, &m.offset)
+
+	lines := append([]string{}, top...)
+	if hasDesc {
+		desc := wrapText(m.descs[m.cursor], lay.descW-4)
+		descBox, _ := panelBox(T.PanelDesc, desc, lay.descW, lay.panelH, false, -1, new(int))
+		lines = append(lines, joinPanelLines(listBox, descBox, lay.panelH)...)
+	} else {
+		lines = append(lines, listBox...)
 	}
 
-	// прокрутка: держим курсор в видимом окне
-	vis := m.visibleCount()
-	if m.cursor < m.offset {
-		m.offset = m.cursor
+	var regions []hitRegion
+	for i, ry := range rowY {
+		if ry >= 0 {
+			regions = append(regions, hitRegion{index: i, x0: 0, x1: lay.panelW - 1, y0: lay.baseY + ry, y1: lay.baseY + ry})
+		}
 	}
-	if m.cursor >= m.offset+vis {
-		m.offset = m.cursor - vis + 1
-	}
-	if m.offset < 0 {
-		m.offset = 0
-	}
-	end := min(m.offset+vis, len(m.labels))
-
-	if m.offset > 0 {
-		lines = append(lines, styDim.Render(fmt.Sprintf(T.MoreAbove, m.offset)))
-	}
-	w := btnWidth(m.width)
-	for i := m.offset; i < end; i++ {
-		box := boxButton(m.labels[i], w, i == m.cursor)
-		y0 := len(lines)
-		lines = append(lines, strings.Split(box, "\n")...)
-		regions = append(regions, hitRegion{index: i, x0: 0, x1: lipgloss.Width(box) - 1, y0: y0, y1: len(lines) - 1})
-	}
-	if end < len(m.labels) {
-		lines = append(lines, styDim.Render(fmt.Sprintf(T.MoreBelow, len(m.labels)-end)))
-	}
+	m.regions = regions
 
 	lines = append(lines, "", styDim.Render(T.TuiHintSelect))
-	m.regions = regions
 	return strings.Join(lines, "\n")
-}
-
-// boxButton рисует пункт как отдельную кнопку в рамке (rounded, 3 строки).
-// Выделенная — акцентная (синяя) рамка, жирный текст и указатель ❯; без заливки строки.
-func boxButton(label string, w int, selected bool) string {
-	box := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).Padding(0, 1).Width(w)
-	if selected {
-		return box.BorderForeground(lipgloss.Color(cPink)).Bold(true).
-			Render(styPink.Render("❯ ") + label)
-	}
-	return box.BorderForeground(lipgloss.Color(cDim)).Render("  " + label)
 }
 
 // hitIndex возвращает index области, содержащей точку (x,y), или -1.
@@ -166,9 +138,11 @@ func hitIndex(regions []hitRegion, x, y int) int {
 	return -1
 }
 
-// runSelect показывает меню и возвращает индекс выбранного пункта (-1 — отмена).
-func runSelect(title, header string, labels []string, initial int) int {
-	m := &selectModel{title: title, header: header, labels: labels, cursor: initial, chosen: -1}
+// runSelect показывает панельное меню и возвращает индекс выбранного пункта
+// (-1 — отмена). descs (если непустой) даёт правую панель описаний.
+// Объявлено как var — тесты подменяют его, чтобы прогонять мастера без TTY.
+var runSelect = func(title, header string, labels, descs []string, initial int) int {
+	m := &selectModel{title: title, header: header, labels: labels, descs: descs, cursor: initial, chosen: -1}
 	if _, err := tea.NewProgram(m, tea.WithAltScreen(), tea.WithMouseCellMotion()).Run(); err != nil {
 		return -1
 	}

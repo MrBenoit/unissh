@@ -3,9 +3,7 @@ package app
 // Генерация и чтение локального SSH-ключа для unissh.
 
 import (
-	"crypto/rand"
 	"fmt"
-	"math/big"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -49,30 +47,4 @@ func ensureKey(path string, interactive bool) (string, error) {
 func fileExists(p string) bool {
 	_, err := os.Stat(p)
 	return err == nil
-}
-
-const passwordAlphabet = "abcdefghijkmnpqrstuvwxyz" +
-	"ABCDEFGHJKLMNPQRSTUVWXYZ" +
-	"23456789" +
-	"!@#%^*-_=+"
-
-// genPassword — криптостойкий пароль без неоднозначных символов (0/O, 1/l/I).
-func genPassword(length int) string {
-	for {
-		b := make([]byte, length)
-		for i := range b {
-			n, err := rand.Int(rand.Reader, big.NewInt(int64(len(passwordAlphabet))))
-			if err != nil {
-				panic(err)
-			}
-			b[i] = passwordAlphabet[n.Int64()]
-		}
-		pw := string(b)
-		if strings.ContainsAny(pw, "abcdefghijkmnpqrstuvwxyz") &&
-			strings.ContainsAny(pw, "ABCDEFGHJKLMNPQRSTUVWXYZ") &&
-			strings.ContainsAny(pw, "23456789") &&
-			strings.ContainsAny(pw, "!@#%^*-_=+") {
-			return pw
-		}
-	}
 }

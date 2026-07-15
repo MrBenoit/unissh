@@ -3,9 +3,7 @@ package app
 // Журнал подключений и относительное время «последнего входа».
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 	"time"
 )
@@ -17,26 +15,16 @@ func historyPath() string {
 
 // recordConnection фиксирует подключение: обновляет last_connected сервера
 // (для сортировки и колонки «последний вход») и дописывает запись в журнал.
-func recordConnection(s *Server) {
+func recordConnection(st *Store, s *Server) {
 	now := time.Now()
 	s.LastConnected = now.Format(time.RFC3339)
-	if gStore != nil {
-		gStore.MustSave()
+	if st != nil {
+		st.MustSave()
 	}
-	line, err := json.Marshal(map[string]string{
-		"server": s.Name,
-		"host":   s.Host,
-		"at":     now.Format(time.RFC3339),
+	journalAppend(journalEntry{
+		At: now.Format(time.RFC3339), Kind: journalConnect,
+		Server: s.Name, Host: s.Host,
 	})
-	if err != nil {
-		return
-	}
-	f, err := os.OpenFile(historyPath(), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
-	if err != nil {
-		return
-	}
-	defer f.Close()
-	f.Write(append(line, '\n'))
 }
 
 // relativeTime возвращает компактную локализованную строку «сколько назад»

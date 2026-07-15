@@ -95,13 +95,6 @@ func (b *bootstrap) step(title string, critical bool, fn func(onLine func(string
 	return nil
 }
 
-func firstLine(s string) string {
-	if i := strings.IndexByte(s, '\n'); i >= 0 {
-		return s[:i]
-	}
-	return s
-}
-
 func (b *bootstrap) sh(cmd string, onLine func(string), timeout time.Duration) (string, error) {
 	return b.r.Sh(cmd, "", onLine, timeout)
 }
@@ -169,7 +162,7 @@ func (b *bootstrap) installPackages(onLine func(string)) error {
 			"ufw fail2ban unattended-upgrades ca-certificates", onLine, 15*time.Minute)
 		return err
 	case "dnf", "yum":
-		b.sh(b.pm+" -y install epel-release || true", onLine, 5*time.Minute)
+		_, _ = b.sh(b.pm+" -y install epel-release || true", onLine, 5*time.Minute)
 		_, err := b.sh(b.pm+" -y install sudo curl wget git htop vim tmux "+
 			"firewalld fail2ban", onLine, 15*time.Minute)
 		return err
@@ -193,8 +186,8 @@ func (b *bootstrap) createUser(_ func(string)) error {
 	if b.pm != "" && b.pm != "apt" {
 		pmInstall = b.pm
 	}
-	b.sh("command -v sudo >/dev/null 2>&1 || "+pmInstall+" install -y sudo", nil, 5*time.Minute)
-	b.sh(fmt.Sprintf("getent group %s >/dev/null 2>&1 || groupadd %s",
+	_, _ = b.sh("command -v sudo >/dev/null 2>&1 || "+pmInstall+" install -y sudo", nil, 5*time.Minute)
+	_, _ = b.sh(fmt.Sprintf("getent group %s >/dev/null 2>&1 || groupadd %s",
 		b.adminGroup, b.adminGroup), nil, 15*time.Second)
 	if _, err := b.sh(fmt.Sprintf("id -u %s >/dev/null 2>&1 || useradd -m -s /bin/bash %s", u, u),
 		nil, 30*time.Second); err != nil {
@@ -244,6 +237,9 @@ func (b *bootstrap) installKeys(_ func(string)) error {
 	return nil
 }
 
+// verifyLoginRetryDelay — пауза между попытками входа. var, чтобы тесты не ждали.
+var verifyLoginRetryDelay = 2 * time.Second
+
 func (b *bootstrap) verifyUserLogin(port int) error {
 	u := b.opts.Username
 	var lastErr error
@@ -265,7 +261,7 @@ func (b *bootstrap) verifyUserLogin(port int) error {
 		} else {
 			lastErr = err
 		}
-		time.Sleep(2 * time.Second)
+		time.Sleep(verifyLoginRetryDelay)
 	}
 	return bootErr(T.ErrKeyLogin, u, lastErr)
 }
@@ -289,14 +285,14 @@ func (b *bootstrap) firewall(onLine func(string)) error {
 		if _, err := b.sh("systemctl enable --now firewalld", onLine, 2*time.Minute); err != nil {
 			return err
 		}
-		b.sh("firewall-cmd --permanent --add-service=ssh", nil, 30*time.Second)
+		_, _ = b.sh("firewall-cmd --permanent --add-service=ssh", nil, 30*time.Second)
 		// открываем и текущий порт (если нестандартный), и новый — до смены порта
 		ports := map[int]bool{b.port: true}
 		if b.opts.NewPort > 0 {
 			ports[b.opts.NewPort] = true
 		}
 		for p := range ports {
-			b.sh(fmt.Sprintf("firewall-cmd --permanent --add-port=%d/tcp", p),
+			_, _ = b.sh(fmt.Sprintf("firewall-cmd --permanent --add-port=%d/tcp", p),
 				nil, 30*time.Second)
 		}
 		_, err := b.sh("firewall-cmd --reload", nil, 30*time.Second)
@@ -394,12 +390,12 @@ func (b *bootstrap) configureSSHD(onLine func(string)) error {
 	revert := func() {
 		if hasInclude {
 			// восстанавливаем прежнее содержимое drop-in, а не удаляем его вслепую
-			b.sh(fmt.Sprintf("if [ -f %s ]; then mv -f %s %s; else rm -f %s; fi",
+			_, _ = b.sh(fmt.Sprintf("if [ -f %s ]; then mv -f %s %s; else rm -f %s; fi",
 				dropInBak, dropInBak, dropIn, dropIn), nil, 15*time.Second)
 		} else {
-			b.sh("cp /etc/ssh/sshd_config.unissh-backup /etc/ssh/sshd_config", nil, 15*time.Second)
+			_, _ = b.sh("cp /etc/ssh/sshd_config.unissh-backup /etc/ssh/sshd_config", nil, 15*time.Second)
 		}
-		b.sh(restartSSHD, nil, time.Minute)
+		_, _ = b.sh(restartSSHD, nil, time.Minute)
 	}
 
 	if err := apply(); err != nil {
@@ -414,19 +410,19 @@ func (b *bootstrap) configureSSHD(onLine func(string)) error {
 	if newPort > 0 {
 		// Гарантируем, что новый порт открыт в файрволе, даже если шаг «firewall»
 		// не выбирался (иначе смена порта отрежет доступ). Идемпотентно, ошибки игнорируем.
-		b.sh(fmt.Sprintf(
+		_, _ = b.sh(fmt.Sprintf(
 			"command -v ufw >/dev/null 2>&1 && ufw allow %d/tcp || true; "+
 				"command -v firewall-cmd >/dev/null 2>&1 && "+
 				"firewall-cmd --permanent --add-port=%d/tcp >/dev/null 2>&1 && "+
 				"firewall-cmd --reload >/dev/null 2>&1 || true",
 			newPort, newPort), nil, time.Minute)
 		// Ubuntu 22.10+ слушает порт через ssh.socket — переключаемся на службу
-		b.sh("if systemctl -q is-enabled ssh.socket 2>/dev/null || "+
+		_, _ = b.sh("if systemctl -q is-enabled ssh.socket 2>/dev/null || "+
 			"systemctl -q is-active ssh.socket 2>/dev/null; then "+
 			"systemctl disable --now ssh.socket; systemctl enable ssh.service; fi",
 			nil, time.Minute)
 		if b.family == "rhel" {
-			b.sh(fmt.Sprintf("command -v semanage >/dev/null 2>&1 && "+
+			_, _ = b.sh(fmt.Sprintf("command -v semanage >/dev/null 2>&1 && "+
 				"semanage port -a -t ssh_port_t -p tcp %d || true", newPort),
 				nil, time.Minute)
 		}

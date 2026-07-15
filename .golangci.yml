@@ -1,5 +1,8 @@
 version: "2"
 
+run:
+  timeout: 5m
+
 linters:
   enable:
     - govet
@@ -8,9 +11,39 @@ linters:
     - unused
     - misspell
     - ineffassign
+    # unissh гоняет shell-команды и хранит секреты — статический аудит уместен
+    - gosec
   settings:
     misspell:
       locale: US
+    gosec:
+      excludes:
+        # G204: запуск подпроцесса с переменной. Для SSH-менеджера это суть работы
+        # (ssh/expect/osascript/security); все значения проходят через shellQuote
+        # или передаются отдельными argv-аргументами.
+        - G204
+        # G304/G703: чтение файла по переменному пути. Пути строятся из нашего
+        # каталога ~/.config/unissh и имён, выбранных из его же содержимого.
+        - G304
+        - G703
+        # G101: «hardcoded credentials» — ложное срабатывание на строки интерфейса
+        # со словом «пароль» в i18n.go.
+        - G101
+        # G704: «SSRF» на net.Dial. unissh и есть SSH-клиент: адрес задаёт
+        # пользователь в своём конфиге.
+        - G704
+        # G602: ложное срабатывание в core.CPUNetDeltas — границы срезов явно
+        # проверены (n = min(len(statA), len(statB))), есть регрессионный тест
+        # на снимки разной длины. Настоящий выход за границы правило уже помогло
+        # найти и исправить.
+        - G602
+  exclusions:
+    rules:
+      # в тестах допустимы неполные проверки ошибок и «слабая» энтропия
+      - path: _test\.go
+        linters:
+          - errcheck
+          - gosec
 
 formatters:
   enable:

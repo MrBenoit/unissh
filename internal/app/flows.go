@@ -12,8 +12,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/charmbracelet/huh"
 )
 
 var (
@@ -64,16 +62,6 @@ var commonTimezones = []string{
 	"Europe/Moscow", "Europe/Kyiv", "Europe/Berlin", "Europe/Amsterdam",
 	"Europe/London", "UTC", "Asia/Almaty", "Asia/Tbilisi", "Asia/Yerevan",
 	"Asia/Dubai", "America/New_York",
-}
-
-func splitTags(s string) []string {
-	var tags []string
-	for _, t := range regexp.MustCompile(`[,\s]+`).Split(strings.TrimSpace(s), -1) {
-		if t != "" {
-			tags = append(tags, t)
-		}
-	}
-	return tags
 }
 
 // -- шаги настройки: список, подписи, дефолты из настроек пользователя --
@@ -170,11 +158,11 @@ func bootstrapOptionsWizard(st *Store) (BootstrapOpts, bool) {
 		opts.NewPort, _ = strconv.Atoi(p)
 	}
 	if has("tz") {
-		var tzOpts []huh.Option[string]
+		var tzOpts []selOption[string]
 		for _, tz := range commonTimezones {
-			tzOpts = append(tzOpts, huh.NewOption(tz, tz))
+			tzOpts = append(tzOpts, opt(tz, tz))
 		}
-		tzOpts = append(tzOpts, huh.NewOption(T.ManualEntry, "__manual__"))
+		tzOpts = append(tzOpts, opt(T.ManualEntry, "__manual__"))
 		tz, ok := askSelect(T.AskTimezone, tzOpts)
 		if !ok {
 			return opts, false
@@ -209,7 +197,7 @@ func bootstrapOptionsWizard(st *Store) (BootstrapOpts, bool) {
 
 func runBootstrapAndSave(st *Store, server *Server, host string, port int,
 	rootPW, rootKey string, opts BootstrapOpts, keyPath, pubkey string,
-	name string, tags []string) {
+	name, folder string) {
 
 	boot := newBootstrap(host, port, rootPW, rootKey, opts, pubkey, keyPath)
 	// Для уже существующего сервера сохраняем новый пароль в Keychain сразу после
@@ -226,7 +214,7 @@ func runBootstrapAndSave(st *Store, server *Server, host string, port int,
 		// чтобы он не потерялся, даже если настройка прервалась.
 		if result.Password != "" {
 			fmt.Println(styYellow.Render(fmt.Sprintf(T.AbortedPassword, opts.Username, result.Password)))
-			pbcopy(result.Password)
+			clipCopy(result.Password)
 		}
 		if server == nil {
 			fmt.Println(styYellow.Render(T.ServerNotSaved))
@@ -237,7 +225,7 @@ func runBootstrapAndSave(st *Store, server *Server, host string, port int,
 
 	isNew := server == nil
 	if isNew {
-		server = &Server{ID: newID(), Name: name, Tags: tags, Notes: ""}
+		server = &Server{ID: newID(), Name: name, Folder: folder, Notes: ""}
 		st.Servers = append(st.Servers, server)
 	}
 	server.Host = host
@@ -277,14 +265,14 @@ func runBootstrapAndSave(st *Store, server *Server, host string, port int,
 	if opts.Harden {
 		fmt.Println("  " + styYellow.Render(fmt.Sprintf(T.WarnNoPwLogin, keyPath)))
 	}
-	if result.Password != "" && pbcopy(result.Password) {
+	if result.Password != "" && clipCopy(result.Password) {
 		fmt.Println("  " + styDim.Render(T.UserPwCopied))
 	}
 	fmt.Println()
 	// показываем полную информацию о сервере (в т.ч. все IP-адреса)
 	actionInfo(server)
 	if yes, ok := askConfirm(T.AskConnectNow, true); ok && yes {
-		actionConnect(server)
+		actionConnect(st, server)
 	}
 }
 
@@ -305,15 +293,20 @@ func addServerFlow(st *Store) {
 		return
 	}
 	port, _ := strconv.Atoi(portS)
-	tagsS, ok := askInput(T.AskTags, "", nil)
-	if !ok {
-		return
-	}
-	tags := splitTags(tagsS)
 
-	mode, ok := askSelect(T.AskHowAdd, []huh.Option[string]{
-		huh.NewOption(T.OptWithBootstrap, "bootstrap"),
-		huh.NewOption(T.OptPlainAdd, "plain"),
+	// папку спрашиваем только если они вообще заведены
+	folder := ""
+	if len(st.Folders) > 0 {
+		f, ok := pickFolder(st, T.AskFolderChoose)
+		if !ok {
+			return
+		}
+		folder = f
+	}
+
+	mode, ok := askSelect(T.AskHowAdd, []selOption[string]{
+		opt(T.OptWithBootstrap, "bootstrap"),
+		opt(T.OptPlainAdd, "plain"),
 	})
 	if !ok {
 		return
@@ -322,9 +315,9 @@ func addServerFlow(st *Store) {
 	keyPath := st.Settings.SSHKey
 
 	if mode == "bootstrap" {
-		rootAuth, ok := askSelect(T.AskRootAuth, []huh.Option[string]{
-			huh.NewOption(T.OptRootPassword, "password"),
-			huh.NewOption(T.OptRootKeyFile, "key"),
+		rootAuth, ok := askSelect(T.AskRootAuth, []selOption[string]{
+			opt(T.OptRootPassword, "password"),
+			opt(T.OptRootKeyFile, "key"),
 		})
 		if !ok {
 			return
@@ -344,12 +337,11 @@ func addServerFlow(st *Store) {
 
 		pubkey, err := ensureKey(keyPath, true)
 		if err != nil {
-			fmt.Println(styRed.Render(T.ErrNoKeySetup + err.Error()))
-			pressEnter()
+			showPage(T.TitleNewServer, wrapText(styRed.Render(T.ErrNoKeySetup+err.Error()), 76))
 			return
 		}
 
-		err = withSpinner(fmt.Sprintf(T.CheckingRootAccess, host, port), func() error {
+		err = runSpinner(fmt.Sprintf(T.CheckingRootAccess, host, port), func() error {
 			r, err := dialSSH(host, port, "root", rootPW, rootKey, "", 15*time.Second)
 			if err != nil {
 				return err
@@ -358,8 +350,7 @@ func addServerFlow(st *Store) {
 			return nil
 		})
 		if err != nil {
-			fmt.Println(styRed.Render(err.Error()))
-			pressEnter()
+			showError(T.TitleNewServer, err)
 			return
 		}
 		fmt.Println("  " + styGreen.Render("✓ ") + T.RootConfirmed)
@@ -368,7 +359,7 @@ func addServerFlow(st *Store) {
 		if !ok {
 			return
 		}
-		runBootstrapAndSave(st, nil, host, port, rootPW, rootKey, opts, keyPath, pubkey, name, tags)
+		runBootstrapAndSave(st, nil, host, port, rootPW, rootKey, opts, keyPath, pubkey, name, folder)
 		return
 	}
 
@@ -377,9 +368,9 @@ func addServerFlow(st *Store) {
 	if !ok || user == "" {
 		return
 	}
-	auth, ok := askSelect(T.AskAuth, []huh.Option[string]{
-		huh.NewOption(T.OptAuthKey, "key"),
-		huh.NewOption(T.OptAuthPassword, "password"),
+	auth, ok := askSelect(T.AskAuth, []selOption[string]{
+		opt(T.OptAuthKey, "key"),
+		opt(T.OptAuthPassword, "password"),
 	})
 	if !ok {
 		return
@@ -393,7 +384,7 @@ func addServerFlow(st *Store) {
 	}
 	server := &Server{
 		ID: newID(), Name: name, Host: host, Port: port,
-		User: user, Key: key, Auth: auth, Tags: tags,
+		User: user, Key: key, Auth: auth, Folder: folder,
 	}
 	if auth == "password" {
 		pw, ok := askPasswordInput(fmt.Sprintf(T.AskPasswordFor, user, host))
@@ -422,9 +413,9 @@ func rebootstrapFlow(st *Store, s *Server) {
 	if s.Bootstrapped {
 		fmt.Println(styDim.Render(T.RootAuthHint))
 	}
-	rootAuth, ok := askSelect(T.AskRootAuth, []huh.Option[string]{
-		huh.NewOption(T.OptRootKeyFile, "key"),
-		huh.NewOption(T.OptRootPasswordKeychain, "password"),
+	rootAuth, ok := askSelect(T.AskRootAuth, []selOption[string]{
+		opt(T.OptRootKeyFile, "key"),
+		opt(T.OptRootPasswordKeychain, "password"),
 	})
 	if !ok {
 		return
@@ -449,23 +440,21 @@ func rebootstrapFlow(st *Store, s *Server) {
 	keyPath := st.Settings.SSHKey
 	pubkey, err := ensureKey(keyPath, true)
 	if err != nil {
-		fmt.Println(styRed.Render(err.Error()))
-		pressEnter()
+		showError(T.MenuBootstrap, err)
 		return
 	}
 	opts, ok := bootstrapOptionsWizard(st)
 	if !ok {
 		return
 	}
-	runBootstrapAndSave(st, s, s.Host, s.Port, rootPW, rootKey, opts, keyPath, pubkey, s.Name, s.Tags)
+	runBootstrapAndSave(st, s, s.Host, s.Port, rootPW, rootKey, opts, keyPath, pubkey, s.Name, s.Folder)
 }
 
 func actionShowPasswords(s *Server) {
 	pw := secretGet(s.ID, s.User)
 	rootPW := secretGet(s.ID, "root")
 	if pw == "" && rootPW == "" {
-		fmt.Println(styYellow.Render(T.NoPasswordsStored))
-		pressEnter()
+		showPage(T.TitlePasswords, []string{styYellow.Render(T.NoPasswordsStored)})
 		return
 	}
 	var rows []string
@@ -475,45 +464,44 @@ func actionShowPasswords(s *Server) {
 	if rootPW != "" {
 		rows = append(rows, kv("root", styYellow.Bold(true).Render(rootPW)))
 	}
-	fmt.Println(panelYellow.Render(styBold.Render(T.TitlePasswords) + "\n\n" +
-		strings.Join(rows, "\n")))
-	if pw != "" && pbcopy(pw) {
-		fmt.Println(styDim.Render(fmt.Sprintf(T.PwUserCopied, s.User)))
+	if pw != "" && clipCopy(pw) {
+		rows = append(rows, "", styDim.Render(fmt.Sprintf(T.PwUserCopied, s.User)))
 	}
-	pressEnter()
+	showPage(T.TitlePasswords, rows)
 }
 
+// actionInstallKey ставит наш публичный ключ в authorized_keys сервера.
+// Соединение (и возможный запрос пароля) открывается ДО страницы: форма пароля
+// и рендерер страницы не могут делить один tty.
 func actionInstallKey(st *Store, s *Server) {
 	pubkey, err := ensureKey(st.Settings.SSHKey, true)
 	if err != nil {
-		fmt.Println(styRed.Render(err.Error()))
-		pressEnter()
+		showError(T.MenuInstallKey, err)
 		return
 	}
-	// соединение (и запрос пароля) — до спиннера
 	r, err := openRemote(s, true)
 	if err != nil {
-		fmt.Println(styRed.Render(err.Error()))
-		pressEnter()
+		showError(T.MenuInstallKey, err)
 		return
 	}
 	defer r.Close()
-	err = withSpinner(fmt.Sprintf(T.InstallingKey, s.Name), func() error {
+
+	installed := false
+	runPage(T.MenuInstallKey, fmt.Sprintf(T.InstallingKey, s.Name), nil, func() []string {
 		// ключ передаём через stdin ($KEY) — комментарий .pub не ломает shell
-		_, err := r.Sh(`HOME_DIR=$HOME; `+authKeyInstallScript, pubkey, nil, 30*time.Second)
-		return err
-	})
-	if err != nil {
-		fmt.Println(styRed.Render(err.Error()))
-		pressEnter()
+		if _, err := r.Sh(`HOME_DIR=$HOME; `+authKeyInstallScript, pubkey, nil, 30*time.Second); err != nil {
+			return wrapText(styRed.Render(err.Error()), 76)
+		}
+		installed = true
+		return []string{styGreen.Render(T.KeyInstalled)}
+	}, nil)
+	if !installed {
 		return
 	}
 	s.Key = st.Settings.SSHKey
 	s.Auth = "key"
 	st.MustSave()
 	maybeRefreshSSHConfig(st)
-	fmt.Println(styGreen.Render(T.KeyInstalled))
-	time.Sleep(time.Second)
 }
 
 func actionReboot(s *Server) {
@@ -523,13 +511,12 @@ func actionReboot(s *Server) {
 	}
 	r, err := openRemote(s, true)
 	if err != nil {
-		fmt.Println(styRed.Render(err.Error()))
-		pressEnter()
+		showError(T.MenuReboot, err)
 		return
 	}
 	defer r.Close()
 	if s.User == "root" {
-		r.Run("reboot", "", nil, 10*time.Second)
+		_, _, _ = r.Run("reboot", "", nil, 10*time.Second)
 	} else {
 		pw := secretGet(s.ID, s.User)
 		if pw == "" {
@@ -539,10 +526,9 @@ func actionReboot(s *Server) {
 				return
 			}
 		}
-		r.Run("sudo -S -p '' reboot", pw+"\n", nil, 10*time.Second)
+		_, _, _ = r.Run("sudo -S -p '' reboot", pw+"\n", nil, 10*time.Second)
 	}
-	fmt.Println(styGreen.Render(T.RebootSent))
-	time.Sleep(1200 * time.Millisecond)
+	showToast(styGreen.Render(T.RebootSent))
 }
 
 // forgetHostKey удаляет сохранённый отпечаток хоста во всех формах записи.
@@ -552,14 +538,13 @@ func forgetHostKey(host string, port int) {
 		fmt.Sprintf("[%s]:%d", host, port): true,
 	}
 	for h := range hosts {
-		exec.Command("ssh-keygen", "-R", h, "-f", knownHostsPath()).Run()
+		_ = exec.Command("ssh-keygen", "-R", h, "-f", knownHostsPath()).Run()
 	}
 }
 
 func actionForgetHostKey(s *Server) {
 	forgetHostKey(s.Host, s.Port)
-	fmt.Println(styGreen.Render(fmt.Sprintf(T.FingerprintReset, s.Host)))
-	time.Sleep(time.Second)
+	showToast(styGreen.Render(fmt.Sprintf(T.FingerprintReset, s.Host)))
 }
 
 func actionEdit(st *Store, s *Server) {
@@ -568,16 +553,16 @@ func actionEdit(st *Store, s *Server) {
 		if keyLabel == "" {
 			keyLabel = T.KeyNoneLabel
 		}
-		field, ok := askSelect(fmt.Sprintf(T.TitleEdit, s.Name), []huh.Option[string]{
-			huh.NewOption(T.FldName+s.Name, "name"),
-			huh.NewOption(T.FldHost+s.Host, "host"),
-			huh.NewOption(fmt.Sprintf(T.FldPort, s.Port), "port"),
-			huh.NewOption(T.FldUser+s.User, "user"),
-			huh.NewOption(T.FldKey+keyLabel, "key"),
-			huh.NewOption(T.FldProxy+orDash(s.ProxyJump), "proxy"),
-			huh.NewOption(T.FldTags+orDash(strings.Join(s.Tags, " ")), "tags"),
-			huh.NewOption(T.FldNotes+orDash(s.Notes), "notes"),
-			huh.NewOption(T.Done, "done"),
+		field, ok := askSelect(fmt.Sprintf(T.TitleEdit, s.Name), []selOption[string]{
+			opt(T.FldName+s.Name, "name"),
+			opt(T.FldHost+s.Host, "host"),
+			opt(fmt.Sprintf(T.FldPort, s.Port), "port"),
+			opt(T.FldUser+s.User, "user"),
+			opt(T.FldKey+keyLabel, "key"),
+			opt(T.FldProxy+orDash(s.ProxyJump), "proxy"),
+			opt(T.FldFolder+orDash(folderLabel(s.Folder)), "folder"),
+			opt(T.FldNotes+orDash(s.Notes), "notes"),
+			opt(T.Done, "done"),
 		})
 		if !ok || field == "done" {
 			break
@@ -613,13 +598,13 @@ func actionEdit(st *Store, s *Server) {
 					s.Auth = "key"
 				}
 			}
-		case "tags":
-			if v, ok := askInput(T.AskTagsEdit, strings.Join(s.Tags, " "), nil); ok {
-				s.Tags = splitTags(v)
-			}
 		case "proxy":
 			if v, ok := askInput(T.AskProxy, s.ProxyJump, nil); ok {
 				s.ProxyJump = strings.TrimSpace(v)
+			}
+		case "folder":
+			if v, ok := pickFolder(st, T.AskFolderChoose); ok {
+				s.Folder = v
 			}
 		case "notes":
 			if v, ok := askInput(T.AskNotes, s.Notes, nil); ok {
@@ -644,66 +629,6 @@ func actionDelete(st *Store, s *Server) bool {
 	st.Remove(s.ID)
 	st.MustSave()
 	maybeRefreshSSHConfig(st)
-	fmt.Println(styGreen.Render(fmt.Sprintf(T.DeletedMsg, s.Name)))
-	time.Sleep(time.Second)
+	showToast(styGreen.Render(fmt.Sprintf(T.DeletedMsg, s.Name)))
 	return true
-}
-
-func serverManageMenu(st *Store, s *Server) {
-	for {
-		statuses := map[string]probeResult{s.ID: probe(s.Host, s.Port, statusTimeout(st))}
-		header := serversTable([]*Server{s}, statuses)
-
-		opts := []huh.Option[string]{
-			huh.NewOption(T.MenuConnect, "connect"),
-			huh.NewOption(T.MenuInfo, "info"),
-			huh.NewOption(T.MenuMonitor, "monitor"),
-			huh.NewOption(T.MenuRun, "run"),
-			huh.NewOption(T.MenuPasswords, "password"),
-		}
-		if s.Auth == "password" {
-			opts = append(opts, huh.NewOption(T.MenuInstallKey, "install_key"))
-		}
-		opts = append(opts,
-			huh.NewOption(T.MenuBootstrap, "rebootstrap"),
-			huh.NewOption(T.MenuCopyCmd, "copy"),
-			huh.NewOption(T.MenuForget, "forget"),
-			huh.NewOption(T.MenuReboot, "reboot"),
-			huh.NewOption(T.MenuEdit, "edit"),
-			huh.NewOption(T.MenuDelete, "delete"),
-			huh.NewOption(T.Back, "back"),
-		)
-		act, ok := askSelectHeader(fmt.Sprintf(T.AskActions, s.Name), header, opts)
-		if !ok || act == "back" {
-			return
-		}
-		switch act {
-		case "connect":
-			actionConnect(s)
-		case "info":
-			actionInfo(s)
-		case "monitor":
-			actionMonitor(s)
-		case "run":
-			actionRunSingle(s)
-		case "password":
-			actionShowPasswords(s)
-		case "install_key":
-			actionInstallKey(st, s)
-		case "rebootstrap":
-			rebootstrapFlow(st, s)
-		case "copy":
-			actionCopySSHCmd(s)
-		case "forget":
-			actionForgetHostKey(s)
-		case "reboot":
-			actionReboot(s)
-		case "edit":
-			actionEdit(st, s)
-		case "delete":
-			if actionDelete(st, s) {
-				return
-			}
-		}
-	}
 }

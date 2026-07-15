@@ -11,6 +11,7 @@ permissions:
 jobs:
   build:
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
@@ -19,12 +20,18 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - name: Build
-        run: go build ./...
-      - name: Vet
-        run: go vet ./...
-      - name: Test
-        run: go test ./...
+          cache: true
+
+      # Единственный источник правды — Makefile: локально и в CI гоняется одно и то же.
+      # `make ci` = test → test-race → vet → гейт покрытия → сборка.
+      # Сборка не выполняется ни на красных тестах, ни при покрытии ядра ниже 90%.
+      - name: Format check
+        run: make fmt-check
+      - name: Test, race, vet, coverage gate, build
+        run: make ci
+
+      - name: Smoke test
+        run: ./unissh version
 
   lint:
     runs-on: ubuntu-latest
@@ -33,7 +40,23 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+          cache: true
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v7
         with:
           version: v2.1
+
+  tidy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      # go.mod/go.sum должны быть в актуальном состоянии — иначе `go install` у
+      # пользователя подтянет не то, что мы тестировали.
+      - name: go mod tidy is clean
+        run: |
+          go mod tidy
+          git diff --exit-code -- go.mod go.sum

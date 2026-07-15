@@ -5,6 +5,10 @@ project_name: unissh
 before:
   hooks:
     - go mod tidy
+    # Релиз не собирается без зелёных тестов, проверок и покрытия >= 90%.
+    - go vet ./...
+    - go test ./...
+    - sh scripts/coverage.sh
 
 builds:
   - env:

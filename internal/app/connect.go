@@ -10,13 +10,12 @@ import (
 	"time"
 )
 
-func sshArgs(s *Server) []string {
+// sshCommonArgs — опции, общие для ssh и scp: наш known_hosts (TOFU), ключ и
+// бастион. Порт сюда НЕ входит: у ssh это «-p», у scp — «-P».
+func sshCommonArgs(s *Server) []string {
 	args := []string{
-		"-p", strconv.Itoa(s.Port),
 		"-o", "StrictHostKeyChecking=accept-new",
 		"-o", "UserKnownHostsFile=" + knownHostsPath(),
-		"-o", "ServerAliveInterval=30",
-		"-o", "ServerAliveCountMax=3",
 	}
 	if s.Key != "" {
 		args = append(args, "-i", expandPath(s.Key), "-o", "IdentitiesOnly=yes")
@@ -24,37 +23,42 @@ func sshArgs(s *Server) []string {
 	if s.ProxyJump != "" {
 		args = append(args, "-J", s.ProxyJump) // подключение через бастион
 	}
-	args = append(args, s.User+"@"+s.Host)
 	return args
 }
 
-// confirmConnect показывает экран-подтверждение с кнопками [Подключиться]/[Отмена].
-// Возвращает true, если пользователь подтвердил.
-func confirmConnect(s *Server) bool {
-	header := styGrey.Render(s.Addr())
-	idx := runSelect(fmt.Sprintf(T.ConfirmConnectTitle, s.Name), header,
-		[]string{T.ConnectBtn, T.CancelBtn}, 0)
-	return idx == 0
+// sshArgs — аргументы системного ssh; цель (user@host) всегда последняя.
+func sshArgs(s *Server) []string {
+	args := []string{"-p", strconv.Itoa(s.Port)}
+	args = append(args, sshCommonArgs(s)...)
+	args = append(args, "-o", "ServerAliveInterval=30", "-o", "ServerAliveCountMax=3")
+	return append(args, s.User+"@"+s.Host)
 }
 
-// actionConnect подключается к серверу (новое окно или inline, с авто-вводом
-// пароля) и фиксирует факт подключения в журнале.
-func actionConnect(s *Server) {
-	recordConnection(s) // обновляем «последний вход» и журнал
-
-	// пароль (если аутентификация по паролю) — для авто-ввода
-	password := ""
+// serverPassword возвращает пароль сервера из Keychain, если вход парольный
+// (у сервера нет ключа или auth=password). Иначе — пустая строка.
+func serverPassword(s *Server) string {
 	if s.Auth == "password" || s.Key == "" {
-		password = secretGet(s.ID, s.User)
+		return secretGet(s.ID, s.User)
 	}
+	return ""
+}
+
+// sshConnErrCode — код выхода ssh, означающий, что подключиться не удалось.
+const sshConnErrCode = 255
+
+// actionConnect подключается к серверу (новое окно или inline, с авто-вводом
+// пароля). Факт подключения фиксируется только ПОСЛЕ успешной попытки —
+// иначе «последний вход» проставлялся бы даже при недоступном сервере.
+func actionConnect(st *Store, s *Server) {
+	password := serverPassword(s) // для авто-ввода, если вход по паролю
 
 	// Режим нового окна: запускаем во внешнем терминале (с авто-вводом пароля,
 	// если он есть) и сразу возвращаемся в меню. При неудаче — откат к inline.
-	if connectInNewWindow(gSettings) {
+	if connectInNewWindow(&st.Settings) {
 		cmd, cleanup := sshWindowCommand(s, password)
 		if err := openConnectionWindowCmd(s, cmd); err == nil {
-			fmt.Println(styGreen.Render(T.OpenedNewWindow) + styGrey.Render("  "+s.Addr()))
-			time.Sleep(900 * time.Millisecond)
+			recordConnection(st, s)
+			showToast(styGreen.Render(T.OpenedNewWindow) + styGrey.Render("  "+s.Addr()))
 			return
 		} else {
 			cleanup() // окно не открылось — убираем временный скрипт с паролем
@@ -76,14 +80,17 @@ func actionConnect(s *Server) {
 			time.Sleep(1200 * time.Millisecond)
 			return
 		}
+		if code != sshConnErrCode {
+			recordConnection(st, s)
+		}
 		sessionEnded(code)
 		return
 	}
 
 	// обычный ssh (ключ, либо нет пароля/expect). Если пароль есть, но авто-ввод
-	// недоступен — копируем в буфер и подсказываем, чтобы было что вставить.
+	// недоступен — кладём в буфер (с автоочисткой) и подсказываем.
 	if password != "" {
-		if pbcopy(password) {
+		if clipCopyEphemeral(password) {
 			fmt.Println(styYellow.Render(T.PwCopiedClipboard))
 		}
 	}
@@ -101,16 +108,20 @@ func actionConnect(s *Server) {
 		time.Sleep(1200 * time.Millisecond)
 		return
 	}
+	if code != sshConnErrCode {
+		recordConnection(st, s)
+	}
 	sessionEnded(code)
 }
 
+// sessionEnded показывает исход интерактивной сессии. Сама сессия шла в обычном
+// терминале (ssh забирает tty целиком), а сюда мы возвращаемся уже к экранам.
 func sessionEnded(code int) {
 	sty := styGreen
 	if code != 0 {
 		sty = styYellow
 	}
-	fmt.Println(sty.Render(fmt.Sprintf(T.SessionEnded, code)))
-	time.Sleep(600 * time.Millisecond)
+	showToast(sty.Render(fmt.Sprintf(T.SessionEnded, code)))
 }
 
 func actionCopySSHCmd(s *Server) {
@@ -126,10 +137,9 @@ func actionCopySSHCmd(s *Server) {
 		}
 		cmd += p
 	}
-	if pbcopy(cmd) {
-		fmt.Println(styGreen.Render(T.CopiedCmd) + styBold.Render(cmd))
+	if clipCopy(cmd) {
+		showToast(styGreen.Render(T.CopiedCmd) + "\n" + styBold.Render(cmd))
 	} else {
-		fmt.Println(styBold.Render(cmd))
+		showToast(styBold.Render(cmd))
 	}
-	time.Sleep(1200 * time.Millisecond)
 }
