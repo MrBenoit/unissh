@@ -43,7 +43,8 @@ This replaces both with something you can actually look at.
 - **It doesn't leak your passwords.** No `sshpass`. Nothing on disk. Passwords live in your
   system keyring — the macOS Keychain or the Secret Service on Linux. The clipboard
   auto-clears after 45 seconds, and only a SHA-256 hash of the secret ever reaches `argv`.
-- **It stays out of your way.** Everything is one keystroke. The mouse works too, if you want it.
+- **It stays out of your way.** Everything is one keystroke, and a server you have already
+  visited opens instantly — the connection is kept alive and reused. The mouse works too.
 
 ---
 
@@ -76,6 +77,9 @@ Four panels, lazygit style. Arrows or mouse; `Tab` moves between panels.
 
 - **Connect in one key.** `c` on any server. Opens in a new terminal window — Warp, iTerm2,
   Terminal.app, kitty, gnome-terminal and friends are detected automatically — or inline.
+- **Reconnects are instant.** The first connect opens a master socket and every one after
+  reuses it, skipping the TCP handshake, key exchange and auth entirely. `scp` rides on it
+  too. Nothing to configure.
 - **Auto password login.** Password-auth servers get their password typed in for you via
   `expect`. An instant, ready session — no clipboard dance.
 - **Folders.** Group servers, collapse with `←`/`→`. Press `m` to **grab** a server — it
@@ -202,6 +206,7 @@ Press `?` inside the app to see this list at any time.
 |---|---|
 | Servers & settings | `~/.config/unissh/servers.json` |
 | Host fingerprints | `~/.config/unissh/known_hosts` |
+| Connection sockets (multiplexing) | `~/.config/unissh/cm/` |
 | Config backups | `~/.config/unissh/backups/` |
 | Journal (`0600` — commands may contain secrets) | `~/.config/unissh/history.jsonl` |
 | Passwords | macOS Keychain, or the Linux Secret Service (`secret-tool`), service `unissh` |
