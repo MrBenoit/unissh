@@ -13,12 +13,18 @@
 #      поэтому в кадре видно живые шкалы CPU/RAM/диска, а не «loading…».
 #
 # Требуется: vhs (brew install vhs), sudo (только для псевдонимов), go.
-# Запуск: make demo
+# Запуск: make demo            — записать demo.gif
+#         make social          — собрать .github/social-preview.png
+#         ./scripts/record-demo.sh <файл.tape>   — прогнать свой сценарий
 set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 command -v vhs >/dev/null 2>&1 || { echo "нужен vhs: brew install vhs"; exit 1; }
+
+# Какой сценарий крутить в подготовленном окружении. По умолчанию — демо.
+TAPE="${1:-demo.tape}"
+[ -f "$TAPE" ] || { echo "нет файла сценария: $TAPE"; exit 1; }
 
 # Адреса серверов в демо. Идеальный вариант — TEST-NET-3 (203.0.113.0/24):
 # RFC 5737 резервирует его ровно под документацию, и в кадре он выглядит как
@@ -102,7 +108,7 @@ sleep 0.7
 
 # --- запись -----------------------------------------------------------------
 go build -ldflags "-s -w -X main.version=v1.0.1" -o "$DEMO_HOME/bin/unissh" .
-echo "Записываю demo.gif…"
-HOME="$DEMO_HOME" PATH="$DEMO_HOME/bin:$PATH" vhs demo.tape
+echo "Прогоняю ${TAPE}…"
+HOME="$DEMO_HOME" PATH="$DEMO_HOME/bin:$PATH" vhs "$TAPE"
 
-echo "✓ demo.gif готов — на фиктивных серверах, настоящие в кадр попасть не могли."
+echo "✓ готово — на фиктивных серверах, настоящие в кадр попасть не могли."

@@ -11,7 +11,7 @@ LDFLAGS   := -s -w -X main.version=$(VERSION)
 COVER_MIN ?= 90
 
 .DEFAULT_GOAL := build
-.PHONY: all test test-race vet fmt fmt-check lint cover cover-check build install release ci ci-full demo clean
+.PHONY: all test test-race vet fmt fmt-check lint cover cover-check build install release ci ci-full demo social clean
 
 ## test: прогнать все тесты (гейт для сборки и релиза)
 test:
@@ -67,6 +67,11 @@ ci-full: ci lint
 ## demo: записать demo.gif на ФИКТИВНЫХ серверах (нужен vhs)
 demo:
 	./scripts/record-demo.sh
+
+## social: собрать .github/social-preview.png (1280x640) — превью для соцсетей
+social:
+	./scripts/record-demo.sh scripts/social.tape
+	@rm -f .social-tmp.gif
 
 ## clean: убрать артефакты
 clean:

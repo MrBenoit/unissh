@@ -19,6 +19,9 @@ unissh-*.exp
 go.work
 go.work.sum
 
+# временный вывод vhs при сборке social-preview
+.social-tmp.gif
+
 # Артефакты тестов, покрытия и профилирования
 coverage.out
 coverage.html
