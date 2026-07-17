@@ -24,7 +24,9 @@
   ╚═════╝ ╚═╝  ╚═══╝╚═╝╚══════╝╚══════╝╚═╝  ╚═╝
 ```
 
-<!-- Demo is generated from demo.tape: `vhs demo.tape` → demo.gif -->
+<p align="center">
+  <img src="demo.gif" alt="unissh in action: server list with folders, live stats, search, batch actions" width="900">
+</p>
 
 ---
 

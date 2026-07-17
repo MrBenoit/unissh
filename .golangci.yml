@@ -44,6 +44,13 @@ linters:
         linters:
           - errcheck
           - gosec
+      # scripts/demoserver — инструмент записи demo.gif, в поставку не входит.
+      # Он намеренно принимает любую аутентификацию и слушает только loopback,
+      # а «log injection» (G706) — это наш же аргумент командной строки из
+      # scripts/record-demo.sh. Для боевого кода эти правила остаются в силе.
+      - path: scripts/demoserver/
+        linters:
+          - gosec
 
 formatters:
   enable:

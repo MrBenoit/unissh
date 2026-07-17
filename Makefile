@@ -11,7 +11,7 @@ LDFLAGS   := -s -w -X main.version=$(VERSION)
 COVER_MIN ?= 90
 
 .DEFAULT_GOAL := build
-.PHONY: all test test-race vet fmt fmt-check lint cover cover-check build install release ci clean
+.PHONY: all test test-race vet fmt fmt-check lint cover cover-check build install release ci ci-full demo clean
 
 ## test: прогнать все тесты (гейт для сборки и релиза)
 test:
@@ -63,6 +63,10 @@ ci: test test-race vet cover-check build
 
 ## ci-full: ci + golangci-lint (как оба job'а в GitHub Actions)
 ci-full: ci lint
+
+## demo: записать demo.gif на ФИКТИВНЫХ серверах (нужен vhs)
+demo:
+	./scripts/record-demo.sh
 
 ## clean: убрать артефакты
 clean:

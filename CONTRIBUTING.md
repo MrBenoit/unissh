@@ -26,6 +26,15 @@ explains the one constraint that shapes the whole codebase (you cannot run a sec
 `tea.Program` on a live terminal) and the invariants that keep bootstrap from locking you
 out of your own server. [CLAUDE.md](CLAUDE.md) is a condensed version of the same map.
 
+## Recording the demo
+
+`make demo` re-records `demo.gif`. **Never run `vhs demo.tape` directly** — unissh reads
+`~/.config/unissh`, so a bare run would put *your real servers* (their IPs, logins and
+names) into a public GIF. The script records against a throwaway `$HOME` with a fake
+config and a local `scripts/demoserver` that speaks SSH, so the live stats panel shows
+real bars instead of "loading…". It needs `vhs` (`brew install vhs`); `sudo` is optional
+and only used to make the demo IPs look realistic.
+
 ## Conventions
 
 - **Commits**: conventional commits (`feat:`, `fix:`, `docs:`, `chore:`) — they drive the
