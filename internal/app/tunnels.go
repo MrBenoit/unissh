@@ -56,7 +56,11 @@ var tunnels = newTunnelManager()
 // ExitOnForwardFailure=yes заставляет ssh упасть сразу, если порт занят или
 // сервер запретил проброс, — иначе туннель «висел» бы живым, но нерабочим.
 func tunnelSSHArgs(s *Server, t Tunnel) []string {
-	args := []string{"-N", "-T", "-o", "ExitOnForwardFailure=yes"}
+	// ControlPath=none — туннелю нужно СВОЁ соединение. На общем master-сокете
+	// проброс жил бы чужой жизнью: master умрёт по ControlPersist — умрёт и
+	// туннель, а наш kill по группе процессов до него не достучится.
+	// Идёт ПЕРВЫМ: у ssh при повторе опции выигрывает первое значение.
+	args := []string{"-N", "-T", "-o", "ExitOnForwardFailure=yes", "-o", "ControlPath=none"}
 	args = append(args, t.Flags()...)
 	return append(args, sshArgs(s)...)
 }

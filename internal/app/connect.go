@@ -6,8 +6,54 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"time"
+)
+
+// controlDir — каталог для master-сокетов мультиплексирования.
+func controlDir() string { return filepath.Join(configDir(), "cm") }
+
+// usesPassword сообщает, что вход на сервер парольный (ключа нет или явно
+// выбран пароль). Дешёвая проверка по конфигу — без похода в ключницу.
+func usesPassword(s *Server) bool { return s.Auth == "password" || s.Key == "" }
+
+// sshMuxArgs включает мультиплексирование: первое подключение поднимает
+// master-сокет, все следующие переиспользуют его — без TCP, обмена ключами и
+// аутентификации, то есть мгновенно. Работает и для scp.
+//
+// Только для входа ПО КЛЮЧУ. При парольном входе ssh запускается через expect,
+// который ждёт приглашения «password:»; на переиспользованном соединении пароля
+// не спросят, и expect провисит до своего таймаута, не отдавая сессию.
+//
+// nil (без ускорения), если каталог не создался или путь не влезает в сокет:
+// это всего лишь оптимизация, ломать из-за неё подключение нельзя.
+func sshMuxArgs(s *Server) []string {
+	if usesPassword(s) {
+		return nil
+	}
+	// %C — хеш (локальный хост, хост, порт, пользователь), 40 hex-символов.
+	// Именно хеш, а не имя хоста: путь к unix-сокету ограничен по длине.
+	path := filepath.Join(controlDir(), "%C")
+	if len(path)-len("%C")+muxHashLen > maxUnixSocketPath {
+		return nil // длинный $HOME: сокет не создать, ssh бы упал совсем
+	}
+	if err := os.MkdirAll(controlDir(), 0o700); err != nil {
+		return nil
+	}
+	return []string{
+		"-o", "ControlMaster=auto",
+		"-o", "ControlPath=" + path,
+		"-o", "ControlPersist=10m",
+	}
+}
+
+const (
+	// muxHashLen — во что разворачивается %C: SHA1 в hex.
+	muxHashLen = 40
+	// maxUnixSocketPath — лимит длины пути unix-сокета: 104 на macOS, 108 на
+	// Linux. Берём меньший, с запасом. Превышение = ssh не подключится вообще.
+	maxUnixSocketPath = 100
 )
 
 // sshCommonArgs — опции, общие для ssh и scp: наш known_hosts (TOFU), ключ и
@@ -30,14 +76,15 @@ func sshCommonArgs(s *Server) []string {
 func sshArgs(s *Server) []string {
 	args := []string{"-p", strconv.Itoa(s.Port)}
 	args = append(args, sshCommonArgs(s)...)
+	args = append(args, sshMuxArgs(s)...)
 	args = append(args, "-o", "ServerAliveInterval=30", "-o", "ServerAliveCountMax=3")
 	return append(args, s.User+"@"+s.Host)
 }
 
-// serverPassword возвращает пароль сервера из Keychain, если вход парольный
-// (у сервера нет ключа или auth=password). Иначе — пустая строка.
+// serverPassword возвращает пароль сервера из ключницы, если вход парольный.
+// Иначе — пустая строка.
 func serverPassword(s *Server) string {
-	if s.Auth == "password" || s.Key == "" {
+	if usesPassword(s) {
 		return secretGet(s.ID, s.User)
 	}
 	return ""

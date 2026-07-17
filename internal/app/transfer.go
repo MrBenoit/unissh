@@ -28,7 +28,9 @@ import (
 // scp означает «сохранить времена файла». Остальное общее с ssh.
 func scpArgs(s *Server) []string {
 	args := []string{"-r", "-P", strconv.Itoa(s.Port)} // -r безвреден и на обычном файле
-	return append(args, sshCommonArgs(s)...)
+	args = append(args, sshCommonArgs(s)...)
+	// переиспользуем master-сокет, если он уже поднят интерактивным подключением
+	return append(args, sshMuxArgs(s)...)
 }
 
 // scpRemote собирает «user@host:путь» с экранированием удалённого пути.
