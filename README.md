@@ -48,29 +48,6 @@ This replaces both with something you can actually look at.
 
 ---
 
-## The main screen
-
-Four panels, lazygit style. Arrows or mouse; `Tab` moves between panels.
-
-```
-┌─ SERVERS ────────────┬─ ACTIONS ────────────┐
-│ ▾ prod               │ ❯ [•] Connect        │
-│     ● web-1        ★ │   [ ] Server info    │
-│     ● db-1           │   [ ] Run a command  │
-│ ▸ staging          3 │   [ ] Port forwarding│
-│   ✗ old-box          ├─ STATS ──────────────┤
-│                      │  Ping  ● 12 ms       │
-├─ MENU ───────────────┤   CPU  ████░░░░  42% │
-│ ❯ [•] Add a server   │   RAM  ███░░░░░  31% │
-│   [ ] Fleet health   │  Disk  ██░░░░░░  24% │
-│   [ ] Journal        │   Net  ↓ 1.2M ↑ 88K  │
-│   [ ] Settings       │ Tunnels ● 1 up       │
-└──────────────────────┴──────────────────────┘
- tab — panels · space — select · c — connect · ? — help
-```
-
----
-
 ## Features
 
 ### Daily driver
