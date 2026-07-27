@@ -77,10 +77,12 @@ func openWarp(title, cmd string) error {
 	}
 	const cfgName = "unissh"
 	// Поля панели, которые Warp признаёт: id, type, split, children, is_focused,
-	// directory, commands, shell — поля `title` у панели НЕТ (проверено ошибкой
-	// парсера самого Warp). Имя сервера кладём в top-level name.
+	// directory, commands, shell. `id` ОБЯЗАТЕЛЕН, поля `title` у панели НЕТ —
+	// и то, и другое выяснено ошибками парсера самого Warp. Имя сервера кладём в
+	// top-level name.
 	toml := "name = " + warpTOMLString(title) + "\n" +
 		"[[panes]]\n" +
+		"id = \"main\"\n" +
 		"type = \"terminal\"\n" +
 		"directory = " + warpTOMLString(home) + "\n" + // Warp не разворачивает «~»
 		"commands = [" + warpTOMLString(cmd) + "]\n"

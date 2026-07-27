@@ -50,8 +50,9 @@ func TestOpenWarpWritesTabConfig(t *testing.T) {
 		t.Error("не должны больше создавать launch_configurations")
 	}
 
-	// имя сервера — в top-level name; у панели поля title нет (Warp его отвергает)
-	for _, want := range []string{`name = "web-1"`, "[[panes]]", `type = "terminal"`, "deploy@1.2.3.4"} {
+	// имя сервера — в top-level name; у панели поля title нет (Warp его отвергает),
+	// а id — обязателен (без него Warp тоже не грузит конфиг)
+	for _, want := range []string{`name = "web-1"`, "[[panes]]", `id = "main"`, `type = "terminal"`, "deploy@1.2.3.4"} {
 		if !strings.Contains(s, want) {
 			t.Errorf("в TOML нет %q:\n%s", want, s)
 		}
