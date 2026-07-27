@@ -76,10 +76,12 @@ func openWarp(title, cmd string) error {
 		return err
 	}
 	const cfgName = "unissh"
-	toml := "name = " + warpTOMLString(cfgName) + "\n" +
+	// Поля панели, которые Warp признаёт: id, type, split, children, is_focused,
+	// directory, commands, shell — поля `title` у панели НЕТ (проверено ошибкой
+	// парсера самого Warp). Имя сервера кладём в top-level name.
+	toml := "name = " + warpTOMLString(title) + "\n" +
 		"[[panes]]\n" +
 		"type = \"terminal\"\n" +
-		"title = " + warpTOMLString(title) + "\n" +
 		"directory = " + warpTOMLString(home) + "\n" + // Warp не разворачивает «~»
 		"commands = [" + warpTOMLString(cmd) + "]\n"
 	if err := os.WriteFile(filepath.Join(dir, cfgName+".toml"), []byte(toml), 0o600); err != nil {
