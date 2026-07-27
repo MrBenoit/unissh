@@ -59,35 +59,41 @@ end tell`, appleScriptEscape(cmd))
 	return runOsascript(script)
 }
 
-// openWarp — новое окно Warp через launch configuration + URI-схему warp://launch.
-// Warp сканирует ~/.warp/launch_configurations/*.yaml; открываем по имени файла.
+// openWarp открывает ssh новой ВКЛАДКОЙ в активном окне Warp через Tab Config
+// (TOML в ~/.warp/tab_configs) и URI warp://tab_config/<name>.
+//
+// Почему вкладка, а не окно: прежний launch config описывал блок `windows:` и
+// поэтому открывал именно новое окно. Tab Config по умолчанию открывается
+// вкладкой в активном окне (…?new_window=true заставил бы открыть окно).
+//
+// Warpify включать не нужно — он срабатывает сам: увидев в выводе приглашение
+// удалённого хоста, Warp предлагает варпифицировать сессию. Достаточно, чтобы
+// ssh крутился в настоящей вкладке Warp, что tab config и обеспечивает.
 func openWarp(title, cmd string) error {
 	home, _ := os.UserHomeDir()
-	dir := filepath.Join(home, ".warp", "launch_configurations")
+	dir := filepath.Join(home, ".warp", "tab_configs")
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
 	const cfgName = "unissh"
-	// exec — literal block scalar (|): не нужно экранировать кавычки в команде.
-	// cwd — абсолютный путь (Warp не разворачивает «~»).
-	yaml := "---\n" +
-		"name: " + cfgName + "\n" +
-		"windows:\n" +
-		"  - tabs:\n" +
-		"      - title: " + yamlSingle(title) + "\n" +
-		"        layout:\n" +
-		"          cwd: " + yamlSingle(home) + "\n" +
-		"          commands:\n" +
-		"            - exec: |\n" +
-		"                " + cmd + "\n"
-	if err := os.WriteFile(filepath.Join(dir, cfgName+".yaml"), []byte(yaml), 0o600); err != nil {
+	toml := "name = " + warpTOMLString(cfgName) + "\n" +
+		"[[panes]]\n" +
+		"type = \"terminal\"\n" +
+		"title = " + warpTOMLString(title) + "\n" +
+		"directory = " + warpTOMLString(home) + "\n" + // Warp не разворачивает «~»
+		"commands = [" + warpTOMLString(cmd) + "]\n"
+	if err := os.WriteFile(filepath.Join(dir, cfgName+".toml"), []byte(toml), 0o600); err != nil {
 		return err
 	}
-	return exec.Command("open", "warp://launch/"+cfgName).Run()
+	return exec.Command("open", "warp://tab_config/"+cfgName).Run()
 }
 
-func yamlSingle(s string) string {
-	return "'" + strings.ReplaceAll(s, "'", "''") + "'"
+// warpTOMLString оборачивает строку в TOML basic string (двойные кавычки).
+// Литеральные строки (одинарные кавычки) не годятся: наша команда уже содержит
+// одинарные кавычки от shellQuote, а в TOML literal string их не экранировать.
+func warpTOMLString(s string) string {
+	r := strings.NewReplacer(`\`, `\\`, `"`, `\"`, "\n", `\n`, "\t", `\t`)
+	return `"` + r.Replace(s) + `"`
 }
 
 // linuxTerminals — эмуляторы, которым можно передать команду как argv

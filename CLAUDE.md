@@ -70,7 +70,7 @@ make cover             # отчёт покрытия
 | `bootstrap.go` | Движок первоначальной настройки (см. «Инварианты» ниже) |
 | `remote.go` | SSH-клиент: dial (ключ/пароль/keyboard-interactive), Run/Sh, WriteFile через stdin, TOFU known_hosts |
 | `connect.go` | Подключение: новое окно терминала (по умолчанию) или inline системным ssh + копирование ssh-команды |
-| `connectwin.go` | Открытие ssh в новом окне: macOS — Warp (launch config + `warp://launch`), iTerm2/Terminal.app (AppleScript); Linux — `$TERMINAL` или список эмуляторов. `canOpenNewWindow()` решает, есть ли чем |
+| `connectwin.go` | Открытие ssh: macOS — Warp новой **вкладкой** (tab config TOML + `warp://tab_config`, warpify включается сам), iTerm2/Terminal.app (AppleScript, окно); Linux — `$TERMINAL` или список эмуляторов. `canOpenNewWindow()` решает, есть ли чем |
 | `info.go` | Панель информации (`infoCmd` с маркерами `===SECTION===`, парсинг секций): ОС/хост/ядро/аптайм, все IP интерфейсов, CPU% (два замера /proc/stat), load, память/диск, docker |
 | `page.go` | Полноэкранные страницы результата (`showPage`), тосты (`showToast`), ошибки (`showError`) и спиннер ожидания (`runSpinner`). Всё в alt-screen — экран не схлопывается |
 | `select.go` | Кликабельное меню-выбор (bubbletea, мышь+клавиатура); `selOption`/`opt` — свой контейнер пунктов; `askSelect`/`askSelectFull`/`askConfirm` идут через него |
@@ -118,10 +118,12 @@ make cover             # отчёт покрытия
   — подключается и показывает панель, включая ВСЕ адреса интерфейсов (секция `IPS` в `infoCmd`,
   `ip -o addr show scope global`, парсинг в `ipAddrLines`) и загрузку CPU% (секция `CPUSTAT` —
   два замера `head -1 /proc/stat` с паузой 0.3с, `cpuPercentFromStat`, поля user..steal без guest).
-- **Новое окно для ssh** (`connectwin.go`): по `TERM_PROGRAM` выбирается Warp/iTerm/Terminal;
-  Warp — через launch config `~/.warp/launch_configurations/unissh.yaml` + `open warp://launch/unissh`
-  (проверено: механизм работает). `actionConnect` в режиме окна не блокируется на сессии,
-  сразу возвращает в меню; при ошибке открытия окна — откат к inline-подключению.
+- **Открытие ssh** (`connectwin.go`): по `TERM_PROGRAM` выбирается Warp/iTerm/Terminal.
+  Warp — новой ВКЛАДКОЙ через tab config `~/.warp/tab_configs/unissh.toml` +
+  `open warp://tab_config/unissh` (launch config с `windows:` открывал окно — ушли от него).
+  Warpify не настраиваем: Warp сам предлагает варпифицировать, увидев приглашение хоста в
+  выводе вкладки. iTerm/Terminal — по-прежнему новым окном (AppleScript). `actionConnect` в
+  режиме окна не блокируется на сессии, сразу возвращает в меню; при ошибке — откат к inline.
 - **Авто-вход по паролю** (`login.go`): требует `expect` (штатный на macOS). Inline — пароль
   через env `UNISSH_SSHPASS` (не на диске, не в argv), `interact` отдаёт сессию пользователю,
   код выхода ssh пробрасывается. Для нового окна env не доедет через `open`, поэтому пароль
